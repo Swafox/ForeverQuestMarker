@@ -1,0 +1,34 @@
+name = "forever-quest-marker"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+workers_dev = false
+# The public address that the addon's export window and the README link to.
+routes = [{ pattern = "forever.swafox.com", custom_domain = true }]
+
+[observability]
+enabled = true
+
+# Keep the Worker's own error logs only. Invocation logs record every request with its
+# metadata, which would store the client IP addresses that the paste page promises to keep
+# only as a keyed hash.
+[observability.logs]
+invocation_logs = false
+
+# Plain configuration. Secrets are listed at the end of this file.
+[vars]
+PROMOTION_MIN_CLIENTS = "3"
+PROMOTION_MIN_IPS = "2"
+RATE_LIMIT_IP_PER_HOUR = "20"
+RATE_LIMIT_CLIENT_PER_HOUR = "20"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "forever-quest-marker"
+# Created with `wrangler d1 create forever-quest-marker`. Not a secret.
+database_id = "651bb112-2dfa-4e5a-80a5-6da6a5060e7f"
+migrations_dir = "migrations"
+
+# Secrets (never commit values). Set them with `bunx wrangler secret put <NAME>`,
+# and for local development in worker/.dev.vars:
+#   ADMIN_TOKEN   Bearer token for /api/admin/* (at least 32 random characters).
+#   IP_HASH_SALT  Secret key for hashing client IP addresses (at least 32 random characters).

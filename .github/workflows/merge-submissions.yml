@@ -1,0 +1,56 @@
+name: Merge community reports
+
+# Each week, pull the quests the Worker confirmed from community reports into
+# dataset/community/confirmed.json, regenerate the addon data and open a pull
+# request for review. The Classic change report (not applied automatically) is
+# attached to the run as an artifact.
+
+on:
+  schedule:
+    - cron: "43 6 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: merge-submissions
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+
+      - uses: actions/cache@v4
+        with:
+          path: .cache/sources
+          key: sources-${{ hashFiles('dataset/sources.json') }}
+
+      - name: Merge confirmed reports and regenerate data
+        env:
+          FQM_WORKER_URL: ${{ secrets.FQM_WORKER_URL }}
+          FQM_ADMIN_TOKEN: ${{ secrets.FQM_ADMIN_TOKEN }}
+        run: bun tools/merge-submissions.ts --summary-file "$RUNNER_TEMP/merge-summary.md"
+
+      - name: Attach the Classic change report
+        uses: actions/upload-artifact@v4
+        with:
+          name: change-candidates
+          path: .cache/change-candidates.md
+          if-no-files-found: ignore
+
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          branch: chore/community-data
+          commit-message: "chore(data): merge community quest reports"
+          title: "chore(data): merge community quest reports"
+          body-path: ${{ runner.temp }}/merge-summary.md
+          add-paths: |
+            dataset/community/confirmed.json
+            Data/*.lua
+            tests/fixtures/quest_sets.lua
+            worker/src/generated/questData.ts

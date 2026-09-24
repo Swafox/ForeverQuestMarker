@@ -1,0 +1,46 @@
+name: Data refresh
+
+# Each week, move the data pins to the newest QuestieDB revision and client builds,
+# regenerate the quest tables, and open a pull request if anything changed. A new
+# Forever client build therefore arrives as a reviewable diff of new quest IDs.
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+
+      - name: Update pins and regenerate
+        id: generate
+        run: |
+          bun tools/generate-data.ts --update | tee generate.log
+          {
+            echo "summary<<EOF"
+            cat generate.log
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          rm generate.log
+
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          branch: chore/data-refresh
+          commit-message: "chore(data): refresh quest ID tables"
+          title: "chore(data): refresh quest ID tables"
+          body: |
+            Automated refresh of the pinned QuestieDB revision and client builds.
+
+            ```
+            ${{ steps.generate.outputs.summary }}
+            ```
+
+            Review the diff of `Data/ForeverQuests.lua` for newly datamined quests before merging.

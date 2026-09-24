@@ -1,0 +1,4 @@
+# Local secrets for `wrangler dev`. Copy to .dev.vars (gitignored) and change the values.
+# Production secrets are set with `bunx wrangler secret put <NAME>`; never commit them.
+ADMIN_TOKEN=local-admin-token-change-me-0123456789
+IP_HASH_SALT=local-ip-hash-salt-change-me-0123456789

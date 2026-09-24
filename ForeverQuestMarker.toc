@@ -1,0 +1,41 @@
+## Interface: 16001
+## Title: ForeverQuest Marker
+## Notes: Marks quests that are new in WoW Forever, separating them from original Classic quests.
+## Author: swafox
+## Version: @project-version@
+## Category: Quests
+## IconTexture: Interface\AddOns\ForeverQuestMarker\Media\Icon.tga
+## SavedVariables: ForeverQuestMarkerDB
+## X-License: GPL-3.0-or-later
+
+Locales\Locales.lua
+Locales\enUS.lua
+
+Core\Init.lua
+Core\Bitset.lua
+
+Data\Meta.lua
+Data\ClassicQuests.lua
+Data\ForeverQuests.lua
+Data\Exclusions.lua
+
+Core\Classifier.lua
+Core\Database.lua
+Core\Display.lua
+Core\Integrations.lua
+Core\Recorder.lua
+Core\Export.lua
+
+UI\Badge.lua
+UI\Tooltip.lua
+UI\QuestFrame.lua
+UI\GossipFrame.lua
+UI\QuestLog.lua
+UI\Tracker.lua
+UI\ExportFrame.lua
+
+Core\Notices.lua
+Core\Diagnostics.lua
+Core\Slash.lua
+Options\Options.lua
+Core\Bootstrap.lua

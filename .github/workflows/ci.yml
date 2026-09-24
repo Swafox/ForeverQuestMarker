@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  addon:
+    name: Lint and test the addon
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # WoW runs Lua 5.1, so the specs do too.
+      - uses: leafo/gh-actions-lua@v11
+        with:
+          luaVersion: "5.1.5"
+      - uses: leafo/gh-actions-luarocks@v5
+
+      - name: Install busted and luacheck
+        run: |
+          luarocks install busted
+          luarocks install luacheck
+
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+
+      - name: Install LuaJIT for the widget API generator
+        run: sudo apt-get update && sudo apt-get install -y luajit
+
+      - name: Check assumptions against the WoW Forever UI source
+        run: bun tools/verify-ui-source.ts --clone
+
+      # The specs below run against the regenerated list, so a removed widget method
+      # fails them; added methods are harmless and only reported here.
+      - name: Report widget API changes in the current client
+        run: git diff --stat tests/helpers/widget_api.lua
+
+      - name: luacheck
+        run: luacheck .
+
+      - name: busted
+        run: busted
+
+      - name: Addon exports pass the Worker's validator
+        run: |
+          (cd worker && bun install --frozen-lockfile)
+          bun test tools/export-contract.test.ts
+
+  tools:
+    name: Test the tooling and generated data
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+
+      - uses: actions/cache@v4
+        with:
+          path: .cache/sources
+          key: sources-${{ hashFiles('dataset/sources.json') }}
+
+      - run: bun run typecheck
+      - run: bun test tools
+      - name: Generated data matches the pinned sources and community lists
+        run: bun tools/generate-data.ts --check

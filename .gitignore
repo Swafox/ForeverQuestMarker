@@ -1,0 +1,20 @@
+# Dependencies and caches
+node_modules/
+.cache/
+lua_modules/
+.luarocks/
+
+# Build output
+.release/
+*.zip
+
+# Cloudflare
+worker/.wrangler/
+worker/.dev.vars
+
+# Editors and OS
+.DS_Store
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+*.swp

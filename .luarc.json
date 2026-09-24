@@ -1,0 +1,16 @@
+{
+  "$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
+  "runtime.version": "Lua 5.1",
+  "diagnostics.globals": [
+    "ForeverQuestMarkerDB",
+    "SLASH_FOREVERQUESTMARKER1",
+    "SLASH_FOREVERQUESTMARKER2"
+  ],
+  "workspace.ignoreDir": [
+    ".cache",
+    "lua_modules",
+    "node_modules",
+    "tests/fixtures",
+    "worker"
+  ]
+}

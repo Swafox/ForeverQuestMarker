@@ -1,0 +1,31 @@
+# BigWigsMods/packager configuration. The repository root is the addon folder;
+# everything below is development tooling and stays out of the release zip.
+package-as: ForeverQuestMarker
+
+enable-nolib-creation: no
+
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown
+
+ignore:
+  - .busted
+  - .github
+  - .gitignore
+  - .luacheckrc
+  - .luarc.json
+  - .pkgmeta
+  - .prettierignore
+  - .vscode
+  - AGENTS.md
+  - CLAUDE.md
+  - bun.lock
+  - dataset
+  - docs
+  - node_modules
+  - package.json
+  - scripts
+  - tests
+  - tools
+  - tsconfig.json
+  - worker

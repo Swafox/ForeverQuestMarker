@@ -1,0 +1,11 @@
+# Files and folders that make up the installed addon (everything else is tooling).
+ForeverQuestMarker.toc
+Core
+Data
+Locales
+Media
+Options
+UI
+LICENSE
+README.md
+CHANGELOG.md

@@ -1,0 +1,2 @@
+# Written by `bun tools/generate-data.ts`; CI's `--check` compares it byte for byte.
+worker/src/generated/

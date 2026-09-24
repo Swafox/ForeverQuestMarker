@@ -1,0 +1,21 @@
+{
+  "name": "forever-quest-marker-worker",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Worker that collects ForeverQuest Marker exports and aggregates community quest reports.",
+  "license": "GPL-3.0-or-later",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "migrate:local": "wrangler d1 migrations apply forever-quest-marker --local",
+    "migrate:remote": "wrangler d1 migrations apply forever-quest-marker --remote",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit -p . && tsc --noEmit -p test"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260923.1",
+    "@types/bun": "^1.2.0",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.136.3"
+  }
+}

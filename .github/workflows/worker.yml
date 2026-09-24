@@ -1,0 +1,75 @@
+name: Worker
+
+# Tests the community submission Worker (worker/) on every change to it. Running the
+# workflow manually also applies pending D1 migrations and deploys the Worker.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "worker/**"
+      - ".github/workflows/worker.yml"
+  pull_request:
+    paths:
+      - "worker/**"
+      - ".github/workflows/worker.yml"
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: Apply D1 migrations and deploy after the tests pass
+        type: boolean
+        default: true
+
+env:
+  WRANGLER_SEND_METRICS: "false"
+
+jobs:
+  test:
+    name: Typecheck, test and bundle
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      # Includes the local D1 integration test (wrangler migrations + workerd).
+      - run: bun test
+      - name: Bundle without deploying
+        run: bunx wrangler deploy --dry-run --outdir "$RUNNER_TEMP/worker-bundle"
+
+  deploy:
+    name: Migrate D1 and deploy
+    needs: test
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: worker-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+        working-directory: worker
+
+      - name: Check that the D1 database ID is configured
+        run: |
+          if grep -q '00000000-0000-0000-0000-000000000000' worker/wrangler.toml; then
+            echo "::error::Set database_id in worker/wrangler.toml to the ID from 'wrangler d1 create forever-quest-marker'."
+            exit 1
+          fi
+
+      # Secrets ADMIN_TOKEN and IP_HASH_SALT are set once with `wrangler secret put`
+      # (see worker/README.md); deployments keep them.
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: worker
+          packageManager: bun
+          command: |
+            d1 migrations apply forever-quest-marker --remote
+            deploy
