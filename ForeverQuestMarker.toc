@@ -7,6 +7,8 @@
 ## IconTexture: Interface\AddOns\ForeverQuestMarker\Media\Icon.tga
 ## SavedVariables: ForeverQuestMarkerDB
 ## X-License: GPL-3.0-or-later
+## X-Curse-Project-ID: 1710118
+## X-Wago-ID: qKQgxnNx
 
 Locales\Locales.lua
 Locales\enUS.lua

@@ -26,8 +26,15 @@ DB.DEFAULT_SETTINGS = {
 
 local function NewClientId()
 	-- Random and stable per installation; lets the pipeline count independent
-	-- reporters without identifying anyone.
-	return ("%08x%08x"):format(math.random(0, 0x7fffffff), math.random(0, 0x7fffffff))
+	-- reporters without identifying anyone. Four 16-bit draws: Lua 5.1 computes
+	-- the range size as a C int, so math.random(0, 0x7fffffff) overflows and
+	-- returns negative numbers, which %x then formats with extra digits.
+	return ("%04x%04x%04x%04x"):format(
+		math.random(0, 0xffff),
+		math.random(0, 0xffff),
+		math.random(0, 0xffff),
+		math.random(0, 0xffff)
+	)
 end
 
 --- Loads or creates the saved variables. Called once, on ADDON_LOADED.

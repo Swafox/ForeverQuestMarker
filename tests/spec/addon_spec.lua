@@ -57,6 +57,8 @@ describe("ForeverQuest Marker in the client emulation", function()
 		it("creates saved variables with defaults and a client ID", function()
 			assert.is_table(ForeverQuestMarkerDB)
 			assert.is_true(ForeverQuestMarkerDB.settings.enabled)
+			-- The Worker only accepts ^[0-9a-f]{16}$ (docs/EXPORT_FORMAT.md).
+			assert.is_truthy(ForeverQuestMarkerDB.clientId:match("^[0-9a-f]+$"))
 			assert.are.equal(16, #ForeverQuestMarkerDB.clientId)
 		end)
 

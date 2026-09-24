@@ -9,6 +9,8 @@ Before tagging a release, rename `Unreleased` to the version and date, for examp
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-24
+
 ### Added
 
 - Quest classification: original Classic (QuestieDB), confirmed new (Forever client quest table
