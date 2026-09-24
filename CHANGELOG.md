@@ -9,6 +9,10 @@ Before tagging a release, rename `Unreleased` to the version and date, for examp
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-24
+
+- Fix wago upload
+
 ## [0.1.0] - 2026-09-24
 
 ### Added
