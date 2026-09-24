@@ -9,9 +9,12 @@ Before tagging a release, rename `Unreleased` to the version and date, for examp
 
 ## [Unreleased]
 
-## [0.1.1] - 2026-09-24
+## [0.1.2] - 2026-09-24
 
-- Fix wago upload
+### Fixed
+
+- Release packaging: this version is also published on Wago Addons. The addon itself is unchanged
+  since 0.1.0 (0.1.1 was tagged but never released).
 
 ## [0.1.0] - 2026-09-24
 
