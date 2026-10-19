@@ -4,14 +4,14 @@
 local _, ns = ...
 
 ns.Data.meta = {
-	questieDB = "Questie/QuestieDB@b6f5b07b0acf",
-	foreverBuild = "1.60.1.69977",
-	eraBuild = "1.15.9.69722",
+	questieDB = "Questie/QuestieDB@e9a67d1a2753",
+	foreverBuild = "1.60.1.70450",
+	eraBuild = "1.15.9.70003",
 	counts = {
 		classic = 4257,
 		sod = 928,
 		era = 495,
-		datamined = 1792,
+		datamined = 1808,
 		community = 0,
 		changed = 0,
 	},
