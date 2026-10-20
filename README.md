@@ -43,8 +43,8 @@ state in chat instead, so you still get the information.
 5. Other quests that exist in the **Classic Era** client (cut, unused and event quests) show no marker.
 6. Anything left is **likely new**.
 
-The current data comes from QuestieDB and the quest tables of Forever build 1.60.1.69977 and
-Classic Era build 1.15.9.69722: 4,257 original Classic quests, 1,792 quests found only in the
+The current data comes from QuestieDB and the quest tables of Forever build 1.60.1.70450 and
+Classic Era build 1.15.9.70003: 4,257 original Classic quests, 1,808 quests found only in the
 Forever client, 928 Season of Discovery quests and 495 other Classic Era quests. `/fqm check <id>`
 explains how any quest ID is classified. See [docs/DATA.md](docs/DATA.md) for details.
 

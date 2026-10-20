@@ -6,7 +6,7 @@
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
 | `classic`   | QuestieDB `data/Classic/classicQuestDB.lua` (4,244 IDs, 2 to 9,665) plus 13 Classic Era-only quests added in `src/corrections/Era/classicQuestFixes.lua` (for example 65593 Hearts of the Lovers)       | 4,257 |
 | `sod`       | QuestieDB `src/corrections/Sod/sodBaseQuests.lua` (76,156 to 90,627)                                                                                                                                    | 928   |
-| `datamined` | IDs in the Forever client's `QuestV2` table (build 1.60.1.69977, 6,600 rows) that are absent from the Classic Era client's (build 1.15.9.69722, 4,807 rows) and from the two sets above, via wago.tools | 1,792 |
+| `datamined` | IDs in the Forever client's `QuestV2` table (build 1.60.1.70450, 6,616 rows) that are absent from the Classic Era client's (build 1.15.9.70003, 4,807 rows) and from the two sets above, via wago.tools | 1,808 |
 | `era`       | IDs in the Classic Era client's `QuestV2` table that are neither Classic nor SoD: cut, unused and event quests                                                                                          | 495   |
 | `community` | `dataset/community/confirmed.json`, fed by the submission pipeline                                                                                                                                      | 0     |
 | `changed`   | `dataset/community/changed.json`, human reviewed                                                                                                                                                        | 0     |
@@ -20,7 +20,7 @@ Findings worth knowing:
 - `QuestV2` only lists quests that own a completion bit, so it is not a full quest list: 709
   Questie Classic quests are absent from the Forever client's table. Absence proves nothing; presence
   in Forever together with absence from Classic Era is strong evidence of a new quest record.
-- New Forever quest IDs cluster from about 86,000 to 99,234, interleaved with retail quest IDs of the
+- New Forever quest IDs cluster from about 86,000 to 99,670, interleaved with retail quest IDs of the
   same period, because Blizzard allocates quest IDs from one global sequence. A numeric cutoff would
   be wrong; set membership is used instead.
 - Three Classic quests (3382, 8193, 8249) gained a `QuestV2` row in Forever. They stay classified as
