@@ -9,6 +9,15 @@ Before tagging a release, rename `Unreleased` to the version and date, for examp
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-10-20
+
+### Fixed
+
+- Release packaging: this version publishes the 0.1.3 changes, since 0.1.3 was tagged without a
+  changelog section and never released. The addon itself is unchanged since 0.1.3.
+
+## [0.1.3] - 2026-10-20
+
 ### Changed
 
 - Quest data from Forever build 1.60.1.70450 and Classic Era 1.15.9.70003: 16 more quests are
