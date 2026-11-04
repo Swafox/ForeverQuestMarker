@@ -4,9 +4,9 @@
 local _, ns = ...
 
 ns.Data.meta = {
-	questieDB = "Questie/QuestieDB@af56aeef176b",
-	foreverBuild = "1.60.1.70450",
-	eraBuild = "1.15.9.70003",
+	questieDB = "Questie/QuestieDB@4ab64311b6f0",
+	foreverBuild = "1.60.1.70755",
+	eraBuild = "1.15.9.70576",
 	counts = {
 		classic = 4257,
 		sod = 928,
