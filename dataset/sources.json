@@ -1,7 +1,7 @@
 {
   "questieDB": {
     "repo": "Questie/QuestieDB",
-    "commit": "3ac79c37f140b8eb343a28318b7a516b82802a86",
+    "commit": "c1b50fefb19c064edc436429bef73435d9ff4254",
     "classicQuestDB": "data/Classic/classicQuestDB.lua",
     "eraQuestFixes": "src/corrections/Era/classicQuestFixes.lua",
     "sodBaseQuests": "src/corrections/Sod/sodBaseQuests.lua"
