@@ -47,6 +47,16 @@ env:RunTimers()
 env:FireEvent("QUEST_ACCEPTED", 95189)
 env:FireEvent("QUEST_TURNED_IN", 95189, 1200, 0)
 
+-- Version 2 details: objective text with the player's name, a turn-in NPC and
+-- required items (one duplicated) on a Classic quest's progress page.
+env.units.questnpc = { guid = CREATURE:format(823), name = "Deputy Willem" }
+env.currentQuestID, env.currentQuestTitle = 176, "Wanted: Hogger"
+env.objectiveText = "Kill 10 Kobold Vermin, Tester."
+env:FireEvent("QUEST_DETAIL", 0)
+env.requiredItems = { { id = 1931, name = "Huge Gnoll Claw" }, { id = 1931, name = "Huge Gnoll Claw" } }
+env:FireEvent("QUEST_PROGRESS")
+env:FireEvent("QUEST_COMPLETE")
+
 if bulk then
 	-- Saved variables holding more quests than one export may carry (the recorder
 	-- stops at the limit, but older data could exceed it): the export caps itself.

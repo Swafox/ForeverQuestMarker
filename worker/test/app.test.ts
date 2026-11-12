@@ -287,8 +287,15 @@ describe("public data", () => {
         firstReported: expect.any(String),
         lastReported: expect.any(String),
         level: 20,
-        giver: { type: "npc", id: 4001, name: "Scout Aldren" },
+        giver: {
+          type: "npc",
+          id: 4001,
+          name: "Scout Aldren",
+          reports: 3,
+          total: 3,
+        },
         map: 1436,
+        position: { map: 1436, x: 0.45, y: 0.61, reports: 3, total: 3 },
         confirmedBy: "auto",
       },
     ]);
@@ -432,14 +439,18 @@ describe("admin endpoints", () => {
 
   test("expose classic observations for change detection", async () => {
     const app = setup();
-    await app.submit(
-      report(1, [questRecord(176, { title: "Wanted: Hogger", level: 12 })]),
-      { ip: "198.51.100.1" },
-    );
-    await app.submit(
-      report(2, [questRecord(176, { title: "Wanted: Hogger", level: 12 })]),
-      { ip: "198.51.100.2" },
-    );
+    const hogger = (items: number[]) =>
+      questRecord(176, {
+        title: "Wanted: Hogger",
+        level: 12,
+        finisher: { type: "npc", id: 240, name: "Marshal Dughan" },
+        objectivesHash: "0badf00d",
+        items,
+      });
+    await app.submit(report(1, [hogger([1931])]), { ip: "198.51.100.1" });
+    await app.submit(report(2, [hogger([1931, 2589])]), {
+      ip: "198.51.100.2",
+    });
     const body = (await (
       await app.admin("/api/admin/classic-observations")
     ).json()) as { quests: Json[] };
@@ -459,6 +470,22 @@ describe("admin endpoints", () => {
             levelReports: 2,
           },
         },
+        giver: {
+          type: "npc",
+          id: 4001,
+          name: "Scout Aldren",
+          reports: 2,
+          total: 2,
+        },
+        finisher: {
+          type: "npc",
+          id: 240,
+          name: "Marshal Dughan",
+          reports: 2,
+          total: 2,
+        },
+        objectives: { enUS: { value: "0badf00d", reports: 2, total: 2 } },
+        items: { value: "1931", reports: 1, total: 2 },
       },
     ]);
   });

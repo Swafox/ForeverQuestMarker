@@ -61,3 +61,25 @@ end
 function SetMixin:GetCount()
 	return self.count
 end
+
+--- Calls fn(id) for every ID in the set, segment IDs in ascending order first,
+--- then the loose IDs. Decodes on demand; meant for occasional full scans such as
+--- the journal, never for per-frame work.
+function SetMixin:ForEach(fn)
+	for i = 1, #self.segments do
+		local offset, bits = self.segments[i][1], self.segments[i][2]
+		for charIndex = 1, #bits do
+			local value = DECODE[byte(bits, charIndex)] or 0
+			local base = offset + (charIndex - 1) * BITS_PER_CHAR
+			for bit = 0, BITS_PER_CHAR - 1 do
+				if value % 2 == 1 then
+					fn(base + bit)
+				end
+				value = floor(value / 2)
+			end
+		end
+	end
+	for id in pairs(self.loose) do
+		fn(id)
+	end
+end

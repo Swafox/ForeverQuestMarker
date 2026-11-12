@@ -6,6 +6,7 @@
 import { describe, expect, test } from "bun:test";
 import { parseExport } from "../worker/src/validate";
 import { REPO_ROOT } from "./data/sources";
+import { hashNormalized } from "./lib/objectivesHash";
 
 const lua = ["luajit", "lua5.1", "lua"].find(
   (name) => Bun.which(name) !== null,
@@ -32,6 +33,11 @@ describe.skipIf(!lua)("addon export accepted by the Worker", () => {
     expect(byId.get(999999)?.level).toBeNull();
     expect(byId.get(999999)?.x).toBeNull();
     expect(byId.get(95189)?.title).toBe("Café in the Ruins");
+    // Version 2 details, hashed the same way as tools/lib/objectivesHash.ts.
+    const hogger = byId.get(176);
+    expect(hogger?.objectivesHash).toBe(hashNormalized("kill10koboldvermin"));
+    expect(hogger?.finisher?.id).toBe(823);
+    expect(hogger?.items).toEqual([1931]);
   });
 
   test("an oversized recorder is capped to what one export may carry", async () => {

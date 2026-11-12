@@ -51,7 +51,7 @@ describe("ForeverQuest Marker in the client emulation", function()
 			assert.is_function(SlashCmdList.FOREVERQUESTMARKER)
 			assert.are.equal("/fqm", SLASH_FOREVERQUESTMARKER1)
 			assert.are.equal(ns.L.ADDON_TITLE, env.settings.registered.name)
-			assert.are.equal(16, #env.settings.checkboxes)
+			assert.are.equal(18, #env.settings.checkboxes)
 		end)
 
 		it("creates saved variables with defaults and a client ID", function()

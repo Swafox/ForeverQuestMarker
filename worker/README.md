@@ -139,8 +139,21 @@ Public, cached for 5 minutes.
       "firstReported": "2026-09-20T10:00:00.000Z",
       "lastReported": "2026-09-22T18:30:00.000Z",
       "level": 17,
-      "giver": { "type": "npc", "id": 12345, "name": "Guard Name" },
+      "giver": {
+        "type": "npc",
+        "id": 12345,
+        "name": "Guard Name",
+        "reports": 3,
+        "total": 3
+      },
       "map": 1436,
+      "position": {
+        "map": 1436,
+        "x": 0.45,
+        "y": 0.61,
+        "reports": 2,
+        "total": 3
+      },
       "confirmedBy": "auto"
     }
   ],
@@ -152,6 +165,10 @@ Public, cached for 5 minutes.
 datamined or community-listed quests that players have reported, with the same fields plus
 `"source": "datamined" | "community"` instead of `confirmedBy`.
 `lastReported` is the last time a report added or changed information about the quest.
+`giver.reports` counts reports naming that giver out of `total` reports naming any giver.
+`position` is the center of the most reported 0.02 by 0.02 cell of the map (or null); the merge
+script turns agreed givers and positions into `dataset/community/places.json`. Quests last reported
+before migration 0002 lack `giver.total` and `position` until their next report.
 
 ### `GET /api/stats`
 
@@ -170,6 +187,7 @@ Require `Authorization: Bearer <ADMIN_TOKEN>`; no CORS. 401 for a missing or wro
 "note": "why", "reviewer": "optional-name" }`. Returns the updated candidate and the audit entries
   written. `pending` hands the quest back to automatic evaluation, which runs immediately. 404 when
   nobody reported the quest, 409 when it is not a candidate (for example an original Classic quest).
-- `GET /api/admin/classic-observations`: per original Classic quest, the observed title and level per
-  locale with report counts, for change detection.
+- `GET /api/admin/classic-observations`: per original Classic quest, the observed title, level and
+  objectives hash per locale, and the giver, finisher and hand-in item set across locales, each with
+  report counts, for change detection.
 - `GET /api/admin/audit?quest=<id>&limit=200`: newest audit entries first, for one quest or all.

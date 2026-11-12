@@ -337,8 +337,9 @@ describe("classification", () => {
         firstReported: expect.any(String),
         lastReported: expect.any(String),
         level: 20,
-        giver: { type: "npc", id: 77, name: null },
+        giver: { type: "npc", id: 77, name: null, reports: 2, total: 3 },
         map: 1436,
+        position: { map: 1436, x: 0.45, y: 0.61, reports: 3, total: 3 },
         source: "datamined",
       },
     ]);
@@ -425,9 +426,19 @@ describe("incremental aggregates", () => {
               { type: "npc", id: 4001, name: "Scout" },
               { type: "object", name: "Chest" },
             ]),
+            finisher: pick([
+              null,
+              { type: "npc", id: 4002, name: "Marshal" },
+              { type: "object", name: "Board" },
+            ]),
+            objectivesHash: pick([null, "0000abcd", "1234beef"]),
+            items: pick([null, [2589], [2589, 4306]]),
             map: pick([null, 1436, 1429]),
-            x: null,
-            y: null,
+            ...pick([
+              { x: null, y: null },
+              { x: 0.452, y: 0.5 },
+              { x: 0.999, y: 1 },
+            ]),
             seenCount: 1 + Math.floor(next() * 3),
           }),
         );
@@ -442,7 +453,9 @@ describe("incremental aggregates", () => {
 
     const observations = h.d1.rows<ObservationRow>(
       `SELECT client_id AS clientId, quest_id AS questId, ip_hash AS ipHash, locale, title, level,
-         giver_type AS giverType, giver_id AS giverId, giver_name AS giverName, map FROM observations`,
+         giver_type AS giverType, giver_id AS giverId, giver_name AS giverName,
+         finisher_type AS finisherType, finisher_id AS finisherId, finisher_name AS finisherName,
+         objectives_hash AS objectivesHash, items, map, x, y FROM observations`,
     );
     const expectedVotes = new Map<string, number>();
     for (const row of observations) {
@@ -651,7 +664,10 @@ describe("manual review", () => {
       result.audit.map(
         (entry) => `${entry.actor} ${entry.fromStatus} -> ${entry.toStatus}`,
       ),
-    ).toEqual(["admin:maintainer flagged -> pending", "auto pending -> flagged"]);
+    ).toEqual([
+      "admin:maintainer flagged -> pending",
+      "auto pending -> flagged",
+    ]);
 
     await h.submit(4, "net-a", [titled("A", CANDIDATE_ID + 1)]);
     await reviewQuest(h.context, request(CANDIDATE_ID + 1, "rejected"));

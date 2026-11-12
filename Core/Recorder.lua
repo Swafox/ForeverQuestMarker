@@ -89,6 +89,62 @@ function Recorder.GetGiverFromUnit(unit)
 	}
 end
 
+local HASH_MODULUS = 4294967291
+local MAX_ITEMS = 20
+local MAX_ITEM_ID = 10000000
+
+local function RemovePlain(text, word)
+	if type(word) ~= "string" or word == "" or not IsReadable(word) then
+		return text
+	end
+	local pattern = word:lower():gsub("%W", "%%%0")
+	return (text:gsub(pattern, ""))
+end
+
+--- Hash of a quest's objective text, comparable with the original Classic text
+--- (tools/lib/objectivesHash.ts implements the same steps). The player's own name,
+--- class and race are removed because the game substitutes them into the text;
+--- then only ASCII letters and digits remain. Returns 8 hex digits, or nil.
+function Recorder.HashObjectives(text, playerWords)
+	if type(text) ~= "string" or not IsReadable(text) then
+		return nil
+	end
+	local normalized = text:lower()
+	for _, word in ipairs(playerWords or {}) do
+		normalized = RemovePlain(normalized, word)
+	end
+	normalized = normalized:gsub("[^%w]", "")
+	if normalized == "" then
+		return nil
+	end
+	local hash = 0
+	for i = 1, #normalized do
+		-- hash < 2^32, so hash * 257 + byte stays exact in a double.
+		hash = (hash * 257 + normalized:byte(i)) % HASH_MODULUS
+	end
+	-- Two 16-bit halves: %x converts to a C long, which is 32 bits on Windows, so a
+	-- hash at or above 2^31 would not format correctly in one piece.
+	return ("%04x%04x"):format(math.floor(hash / 65536), hash % 65536)
+end
+
+local function PlayerWords()
+	return { UnitName("player"), (UnitClass("player")), (UnitRace("player")) }
+end
+
+--- Item IDs the progress page asks the player to hand in, sorted and unique.
+function Recorder.GetRequiredItems()
+	local ids, seen = {}, {}
+	for index = 1, math.min(GetNumQuestItems() or 0, MAX_ITEMS) do
+		local itemID = select(6, GetQuestItemInfo("required", index))
+		if type(itemID) == "number" and itemID > 0 and itemID <= MAX_ITEM_ID and not seen[itemID] then
+			seen[itemID] = true
+			table.insert(ids, itemID)
+		end
+	end
+	table.sort(ids)
+	return #ids > 0 and ids or nil
+end
+
 local function Round(value)
 	return math.floor(value * 1000 + 0.5) / 1000
 end
@@ -133,7 +189,8 @@ local function ShouldRecord(state, isNewRecord)
 end
 
 --- Records one sighting of a quest.
---- info = { title, level, giver = { type, id, name }, accepted, turnedIn, existingOnly }
+--- info = { title, level, giver = { type, id, name }, finisher = { type, id, name },
+---          objectivesHash, items = { itemID, ... }, accepted, turnedIn, existingOnly }
 --- `existingOnly` updates a record without creating one.
 function Recorder.Observe(questID, context, info)
 	local state = Classifier.Classify(questID)
@@ -176,6 +233,18 @@ function Recorder.Observe(questID, context, info)
 	end
 	if info.giver and not record.giver then
 		record.giver = info.giver
+		if ns.Places then
+			ns.Places.Invalidate()
+		end
+	end
+	if info.finisher and not record.finisher then
+		record.finisher = info.finisher
+	end
+	if type(info.objectivesHash) == "string" then
+		record.objectivesHash = info.objectivesHash
+	end
+	if type(info.items) == "table" then
+		record.items = info.items
 	end
 	if info.accepted then
 		record.accepted = true
@@ -217,14 +286,13 @@ local function GetQuestLevel(questID)
 	return nil
 end
 
-local function ObserveOffer(context, giver)
+local function ObserveOffer(context, details)
 	local questID = GetQuestID()
 	if questID and questID > 0 then
-		Recorder.Observe(questID, context, {
-			title = GetTitleText(),
-			level = GetQuestLevel(questID),
-			giver = giver,
-		})
+		local info = details or {}
+		info.title = GetTitleText()
+		info.level = GetQuestLevel(questID)
+		Recorder.Observe(questID, context, info)
 	end
 end
 
@@ -235,7 +303,22 @@ local function OnQuestDetail(questStartItemID)
 	else
 		giver = Recorder.GetGiverFromUnit("questnpc")
 	end
-	ObserveOffer("detail", giver)
+	ObserveOffer("detail", {
+		giver = giver,
+		objectivesHash = Recorder.HashObjectives(GetObjectiveText(), PlayerWords()),
+	})
+end
+
+-- The progress and reward pages come from the NPC or object the quest is turned in to.
+local function OnQuestProgress()
+	ObserveOffer("progress", {
+		finisher = Recorder.GetGiverFromUnit("questnpc"),
+		items = Recorder.GetRequiredItems(),
+	})
+end
+
+local function OnQuestComplete()
+	ObserveOffer("complete", { finisher = Recorder.GetGiverFromUnit("questnpc") })
 end
 
 local function OnGossipShow()
@@ -343,12 +426,8 @@ function Recorder.Enable()
 		recordCount = recordCount + 1
 	end
 	ns:RegisterEvent("QUEST_DETAIL", OnQuestDetail)
-	ns:RegisterEvent("QUEST_PROGRESS", function()
-		ObserveOffer("progress")
-	end)
-	ns:RegisterEvent("QUEST_COMPLETE", function()
-		ObserveOffer("complete")
-	end)
+	ns:RegisterEvent("QUEST_PROGRESS", OnQuestProgress)
+	ns:RegisterEvent("QUEST_COMPLETE", OnQuestComplete)
 	ns:RegisterEvent("GOSSIP_SHOW", OnGossipShow)
 	ns:RegisterEvent("QUEST_GREETING", OnQuestGreeting)
 	ns:RegisterEvent("QUEST_ACCEPTED", OnQuestAccepted)

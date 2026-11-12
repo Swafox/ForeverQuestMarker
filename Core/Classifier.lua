@@ -73,6 +73,23 @@ function Classifier.GetSetCount(name)
 	return sets[name] and sets[name]:GetCount() or 0
 end
 
+--- Calls fn(questID) once for every quest confirmed new in Forever (datamined or
+--- community), in no particular order. A full scan; used by the journal.
+function Classifier.ForEachConfirmed(fn)
+	if not sets then
+		LoadSets()
+	end
+	local seen = {}
+	for _, name in ipairs({ "datamined", "community" }) do
+		sets[name]:ForEach(function(questID)
+			if not seen[questID] and not sets.classic:Contains(questID) then
+				seen[questID] = true
+				fn(questID)
+			end
+		end)
+	end
+end
+
 --- Drops cached results, for example after data tables change in tests.
 function Classifier.Reset()
 	sets = nil

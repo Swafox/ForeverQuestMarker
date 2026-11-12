@@ -12,12 +12,16 @@ import {
   REPO_ROOT,
 } from "./sources";
 import { join } from "node:path";
+import { CHANGE_KINDS, type ChangeKind } from "../lib/changeCandidates";
+import { parsePlacesFile, type PlaceEntry } from "../lib/places";
 
 export interface CommunityEntry {
   id: number;
   title?: string;
   note?: string;
   source?: string;
+  /** changed.json only: what players confirmed as modified. */
+  kinds?: ChangeKind[];
 }
 
 export interface QuestSets {
@@ -37,6 +41,10 @@ export interface QuestSets {
 
 export interface BuildResult {
   sets: QuestSets;
+  /** Agreed quest givers of new quests (dataset/community/places.json), by ID. */
+  places: PlaceEntry[];
+  /** What changed in each modified Classic quest, for those changed.json describes. */
+  changeKinds: { id: number; kinds: ChangeKind[] }[];
   warnings: string[];
   pins: SourcePins;
   inputs: {
@@ -59,6 +67,19 @@ async function readCommunity(file: string): Promise<CommunityEntry[]> {
       throw new Error(
         `dataset/community/${file}: invalid quest ID ${JSON.stringify(entry.id)}`,
       );
+    }
+    if (entry.kinds !== undefined) {
+      if (
+        !Array.isArray(entry.kinds) ||
+        entry.kinds.some(
+          (kind) => !(CHANGE_KINDS as readonly string[]).includes(kind),
+        ) ||
+        new Set(entry.kinds).size !== entry.kinds.length
+      ) {
+        throw new Error(
+          `dataset/community/${file}: quest ${entry.id} kinds must be distinct values of ${CHANGE_KINDS.join(", ")}`,
+        );
+      }
     }
   }
   return data.quests;
@@ -128,6 +149,7 @@ export async function buildQuestSets(
 
   const changedEntries = await readCommunity("changed.json");
   const changed: number[] = [];
+  const changeKinds: BuildResult["changeKinds"] = [];
   for (const entry of changedEntries) {
     if (!classic.has(entry.id)) {
       warnings.push(
@@ -135,8 +157,32 @@ export async function buildQuestSets(
       );
     } else {
       changed.push(entry.id);
+      if (entry.kinds && entry.kinds.length > 0)
+        changeKinds.push({
+          id: entry.id,
+          // Fixed order, so the generated file does not depend on how the entry lists them.
+          kinds: CHANGE_KINDS.filter((kind) => entry.kinds!.includes(kind)),
+        });
     }
   }
+  changeKinds.sort((a, b) => a.id - b.id);
+
+  const newIds = new Set([...datamined, ...community]);
+  const placesFile = parsePlacesFile(
+    await Bun.file(
+      join(REPO_ROOT, "dataset", "community", "places.json"),
+    ).text(),
+    "dataset/community/places.json",
+  );
+  const places: PlaceEntry[] = [];
+  for (const entry of placesFile.quests) {
+    if (newIds.has(entry.id)) places.push(entry);
+    else
+      warnings.push(
+        `places.json: ${entry.id} is not a new Forever quest in this data; ignored`,
+      );
+  }
+  places.sort((a, b) => a.id - b.id);
 
   return {
     sets: {
@@ -147,6 +193,8 @@ export async function buildQuestSets(
       community: normalizeIds(community),
       changed: normalizeIds(changed),
     },
+    places,
+    changeKinds,
     warnings,
     pins,
     inputs: {

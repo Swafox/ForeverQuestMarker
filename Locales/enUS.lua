@@ -17,6 +17,48 @@ L.STATE_CONFIRMED_NOTE = "Confirmed from Forever client data or player reports."
 L.STATE_INFERRED_NOTE = "Not in the Classic quest database. Not yet confirmed."
 L.STATE_CHANGED_NOTE = "Players reported changes to this quest in Forever."
 L.STATE_SOD_NOTE = "Not original Classic; it first appeared in Season of Discovery."
+L.STATE_CHANGED_DETAIL = "Changed in Forever: %s."
+
+-- What changed in a modified Classic quest, listed in STATE_CHANGED_DETAIL.
+L.CHANGE_TITLE = "title"
+L.CHANGE_LEVEL = "level"
+L.CHANGE_GIVER = "quest giver"
+L.CHANGE_FINISHER = "turn-in"
+L.CHANGE_OBJECTIVES = "objectives"
+L.CHANGE_ITEMS = "required items"
+
+-- Shown when the client has not loaded a quest's title yet.
+L.QUEST_FALLBACK = "Quest %d"
+
+-- NPC tooltips.
+L.UNIT_HEADLINE = "New Forever quests: %d"
+L.UNIT_HEADLINE_DONE = "New Forever quests: %d (%d done)"
+L.UNIT_DONE = "(done)"
+L.UNIT_ACTIVE = "(in your log)"
+L.UNIT_MORE = "...and %d more"
+
+-- Journal.
+L.JOURNAL_TITLE = "ForeverQuest Journal"
+L.JOURNAL_SUMMARY = "%s of %s new Forever quests completed (%d%%)"
+L.JOURNAL_HINT = "Zones and quest givers come from community reports and the quests you have seen. Click a quest to set a map waypoint at its quest giver."
+L.JOURNAL_DONE = "Done"
+L.JOURNAL_ACTIVE = "In log"
+L.JOURNAL_CLICK_TRACK = "Click to set a map waypoint at the quest giver."
+L.JOURNAL_NO_SPOT = "The quest giver's position is not known yet."
+L.JOURNAL_UNLOCATED = "%s more quests are not located yet (%s done). Share yours with /fqm export to help map them."
+L.JOURNAL_NO_ZONES = "No quest locations known yet. Quests you meet appear here, and community reports arrive with addon updates."
+L.JOURNAL_SHOW_DONE = "Show completed"
+L.JOURNAL_HIDE_DONE = "Hide completed"
+L.JOURNAL_MAP_FALLBACK = "Map %d"
+
+-- Waypoints.
+L.TRACK_DONE = "Waypoint set for %s (%s)."
+L.TRACK_NO_MAP = "Cannot place a waypoint for %s on that map."
+L.TRACK_UNKNOWN = "The quest giver's position for %s is not known yet."
+
+-- Minimap addon compartment.
+L.COMPARTMENT_PROGRESS = "%s of %s new Forever quests completed"
+L.COMPARTMENT_HINT = "Left-click: journal. Right-click: settings."
 
 -- Short tags for the "show state as text" option.
 L.TAG_CONFIRMED = "New"
@@ -56,6 +98,10 @@ L.OPTION_markTracker = "Objective tracker"
 L.OPTION_markTracker_TIP = "Mark tracked quests in the objective tracker."
 L.OPTION_tooltips = "Tooltips"
 L.OPTION_tooltips_TIP = "Explain the marker in tooltips, including quest links in chat."
+L.OPTION_unitTooltips = "NPC tooltips"
+L.OPTION_unitTooltips_TIP = "When you hover a quest giver, list the new Forever quests it offers and which ones you have done. Uses community reports and the quests you have seen yourself."
+L.OPTION_unitTooltipsHideDone = "Hide completed quests in NPC tooltips"
+L.OPTION_unitTooltipsHideDone_TIP = "List only quests you have not done yet; the headline still counts every quest."
 L.OPTION_showInferred = "Likely new quests"
 L.OPTION_showInferred_TIP = "Mark quests that are missing from the Classic quest database but not yet confirmed as new."
 L.OPTION_distinguishInferred = "Distinguish likely from confirmed"
@@ -79,6 +125,9 @@ L.OPTION_debug_TIP = "Print diagnostic messages to chat. Useful when reporting p
 L.OPTION_BUTTON_EXPORT = "Export"
 L.OPTION_BUTTON_EXPORT_LABEL = "Export recorded quests"
 L.OPTION_BUTTON_EXPORT_TIP = "Open a window with your recorded quests, ready to copy and share."
+L.OPTION_BUTTON_JOURNAL = "Open"
+L.OPTION_BUTTON_JOURNAL_LABEL = "Quest journal"
+L.OPTION_BUTTON_JOURNAL_TIP = "See how many new Forever quests you have done, by zone, and set waypoints to their quest givers."
 L.OPTION_BUTTON_STATUS = "Print"
 L.OPTION_BUTTON_STATUS_LABEL = "Print status to chat"
 L.OPTION_BUTTON_STATUS_TIP = "Show data versions, which frames are marked, and recorded quest counts."
@@ -94,6 +143,8 @@ L.EXPORT_SUMMARY = "%d quests (%s)"
 L.SLASH_HELP = {
 	"/fqm - open the settings",
 	"/fqm check <questID> - explain how a quest is classified",
+	"/fqm journal - your progress through Forever's new quests",
+	"/fqm track <questID> - set a map waypoint at a quest's giver",
 	"/fqm export [csv] - copy your recorded quests",
 	"/fqm status - data versions, marked frames and recorder counts",
 	"/fqm probe - list the quests the addon sees in open windows",
@@ -104,6 +155,7 @@ L.SLASH_HELP = {
 }
 L.SLASH_UNKNOWN = "Unknown command '%s'. Type /fqm help."
 L.SLASH_CHECK_USAGE = "Usage: /fqm check <questID>"
+L.SLASH_TRACK_USAGE = "Usage: /fqm track <questID>"
 L.SLASH_CHECK_RESULT = "Quest %d%s: %s (%s)"
 L.SLASH_DEBUG = "Debug messages %s."
 L.SLASH_ON = "on"

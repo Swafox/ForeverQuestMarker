@@ -7,10 +7,23 @@ import {
 import type { GiverRecord } from "./validate";
 
 /**
- * Votes are per-quest counters of observed values. title, level and giver are
- * kept per locale (titles and names are localized); map uses locale "".
+ * Votes are per-quest counters of observed values. title, level, giver,
+ * finisher and objectives are kept per locale (titles, names and objective
+ * text are localized); map, items and position use locale "".
  */
-export type VoteDimension = "title" | "level" | "giver" | "map";
+export type VoteDimension =
+  | "title"
+  | "level"
+  | "giver"
+  | "finisher"
+  | "objectives"
+  | "map"
+  | "items"
+  | "position";
+
+/** Positions are counted in cells of this size (0..1 map coordinates). */
+export const POSITION_CELL = 0.02;
+const LAST_CELL = Math.round(1 / POSITION_CELL) - 1;
 
 export interface Vote {
   dimension: VoteDimension;
@@ -33,20 +46,81 @@ export interface GiverSummary {
   type: string;
   id: number | null;
   name: string | null;
+  /** Reports naming this giver. */
   reports: number;
+  /** Reports naming any giver. */
+  total: number;
+}
+
+export interface ValueSummary {
+  value: string;
+  reports: number;
+  total: number;
+}
+
+export interface PositionSummary {
+  map: number;
+  /** Center of the most reported position cell. */
+  x: number;
+  y: number;
+  reports: number;
+  total: number;
 }
 
 export interface QuestSummary {
   locales: Record<string, LocaleSummary>;
   level: { value: number; reports: number; total: number } | null;
   giver: GiverSummary | null;
+  /** Who shows the progress or reward page. */
+  finisher: GiverSummary | null;
+  /** Leading objective text hash per locale. */
+  objectives: Record<string, ValueSummary>;
+  /** Leading hand-in item set (IDs ascending, comma-separated). */
+  items: ValueSummary | null;
   map: { id: number; reports: number; total: number } | null;
+  position: PositionSummary | null;
 }
 
 export const PREFERRED_LOCALE = "enUS";
 
 export function emptySummary(): QuestSummary {
-  return { locales: {}, level: null, giver: null, map: null };
+  return {
+    locales: {},
+    level: null,
+    giver: null,
+    finisher: null,
+    objectives: {},
+    items: null,
+    map: null,
+    position: null,
+  };
+}
+
+/** Vote value for a position, or null without a map and both coordinates. */
+export function positionVoteValue(
+  map: number | null,
+  x: number | null,
+  y: number | null,
+): string | null {
+  if (map === null || x === null || y === null) return null;
+  const cell = (value: number) =>
+    Math.min(Math.floor(value / POSITION_CELL), LAST_CELL);
+  return `${map}:${cell(x)}:${cell(y)}`;
+}
+
+function parsePositionVote(value: string): {
+  map: number;
+  x: number;
+  y: number;
+} {
+  const [map, cx, cy] = value.split(":").map(Number) as [
+    number,
+    number,
+    number,
+  ];
+  const center = (cell: number) =>
+    Math.round((cell + 0.5) * POSITION_CELL * 1000) / 1000;
+  return { map, x: center(cx), y: center(cy) };
 }
 
 /** Vote value for a giver, or null when there is nothing to identify it by. */
@@ -98,7 +172,7 @@ function summarizeGiver(votes: readonly Vote[]): GiverSummary | null {
   const name =
     leader(preferred.length > 0 ? preferred : names(group))?.value ?? null;
   const { type, id } = group[0]!.giver;
-  return { type, id, name, reports: top.count };
+  return { type, id, name, reports: top.count, total: top.total };
 }
 
 function numericLeader(
@@ -153,9 +227,40 @@ export function summarize(votes: readonly Vote[]): QuestSummary {
     : null;
 
   summary.giver = summarizeGiver(byDimension("giver"));
+  summary.finisher = summarizeGiver(byDimension("finisher"));
+
+  const hashesByLocale = new Map<string, Tally[]>();
+  for (const vote of byDimension("objectives")) {
+    const tallies = hashesByLocale.get(vote.locale) ?? [];
+    tallies.push({ value: vote.value, count: vote.count });
+    hashesByLocale.set(vote.locale, tallies);
+  }
+  for (const locale of [...hashesByLocale.keys()].sort()) {
+    const top = leader(hashesByLocale.get(locale)!)!;
+    summary.objectives[locale] = {
+      value: top.value,
+      reports: top.count,
+      total: top.total,
+    };
+  }
+
+  const items = leader(byDimension("items"));
+  summary.items = items
+    ? { value: items.value, reports: items.count, total: items.total }
+    : null;
+
   const map = numericLeader(byDimension("map"));
   summary.map = map
     ? { id: map.value, reports: map.count, total: map.total }
+    : null;
+
+  const position = leader(byDimension("position"));
+  summary.position = position
+    ? {
+        ...parsePositionVote(position.value),
+        reports: position.count,
+        total: position.total,
+      }
     : null;
   return summary;
 }

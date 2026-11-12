@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   parseCorrectionAdditions,
   parseDb2CsvIds,
+  parseLuaLiteral,
   parseQuestieQuestFacts,
   parseQuestieQuestIds,
   splitTopLevelFields,
@@ -30,8 +31,44 @@ describe("parseQuestieQuestFacts", () => {
       name: 'Wanted: "Hogger"',
       requiredLevel: 5,
       questLevel: 11,
+      startedBy: { npcs: [], objects: [68], items: [] },
+      finishedBy: { npcs: [240], objects: [], items: [] },
+      objectivesText: ["Kill Hogger."],
+      objectiveItems: [],
     });
     expect(facts.get(9665)?.questLevel).toBe(60);
+    expect(facts.get(9665)?.objectivesText).toBeNull();
+  });
+
+  test("reads item givers and item objectives", () => {
+    const facts = parseQuestieQuestFacts(QUESTIE_SAMPLE);
+    expect(facts.get(2)).toMatchObject({
+      startedBy: null,
+      finishedBy: { npcs: [12676], objects: [], items: [] },
+      objectiveItems: [16305],
+    });
+  });
+});
+
+describe("parseLuaLiteral", () => {
+  test("reads nested tables, nil holes, keys and escaped strings", () => {
+    const parsed = parseLuaLiteral(
+      `{nil,{{3421,"Bring \\"it\\"",nil},{-7.5}},[5] = 9, ["skip"] = 1, 0x10}`,
+    ) as unknown[];
+    expect(parsed.slice(0, 3)).toEqual([
+      null,
+      [[3421, 'Bring "it"', null], [-7.5]],
+      16,
+    ]);
+    expect(3 in parsed).toBe(false);
+    expect(parsed[4]).toBe(9);
+    expect(parsed).toHaveLength(5);
+  });
+
+  test("rejects malformed input", () => {
+    expect(() => parseLuaLiteral("{1,2")).toThrow();
+    expect(() => parseLuaLiteral("{1} 2")).toThrow();
+    expect(() => parseLuaLiteral(`{"open}`)).toThrow();
   });
 });
 

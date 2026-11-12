@@ -32,6 +32,11 @@ function Diagnostics.PrintStatus()
 		table.insert(counts, ("%s %d"):format(name, Classifier.GetSetCount(name)))
 	end
 	ns:Print("Sets: " .. table.concat(counts, ", "))
+	local changeDetails = 0
+	for _ in pairs(ns.Data.changeKinds or {}) do
+		changeDetails = changeDetails + 1
+	end
+	ns:Print(("Community quest givers: %d, change details: %d"):format(ns.Places.CountCommunity(), changeDetails))
 
 	local integrations = {}
 	for _, spec in ipairs(ns.Integrations.List()) do
@@ -65,6 +70,16 @@ function Diagnostics.PrintCheck(questID)
 	local state, reason = Classifier.Classify(questID)
 	ns:Print(ns.L.SLASH_CHECK_RESULT:format(
 		questID, title and (" " .. title) or "", Display.GetStateText(state), Display.GetReasonText(reason)))
+	local changes = Display.GetChangeText(questID)
+	if changes then
+		ns:Print(ns.L.STATE_CHANGED_DETAIL:format(changes))
+	end
+	local mapID, x, y, source = ns.Places.GetLocation(questID)
+	if mapID then
+		local _, zone = ns.Places.GetZone(mapID)
+		ns:Print(("Picked up in %s%s (%s data)"):format(
+			zone, x and (" at %.1f, %.1f"):format(x * 100, y * 100) or "", source))
+	end
 end
 
 local function ProbeGossip(lines)

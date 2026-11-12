@@ -31,6 +31,12 @@ export interface ObservationRow {
   giverType: string | null;
   giverId: number | null;
   giverName: string | null;
+  finisherType: string | null;
+  finisherId: number | null;
+  finisherName: string | null;
+  objectivesHash: string | null;
+  /** Hand-in item IDs, ascending, comma-separated. */
+  items: string | null;
   map: number | null;
   x: number | null;
   y: number | null;

@@ -317,7 +317,37 @@ local TEMPLATES = {
 	UIPanelScrollFrameTemplate = function(frame)
 		frame.ScrollBar = NewWidget("Frame", nil, frame)
 	end,
+	-- SharedUIPanelTemplates.xml; the button's label is its own font string.
+	UIPanelButtonTemplate = function() end,
+	-- SecureScrollTemplates.xml: a UIPanelScrollFrameTemplate with a ScrollChildFrame.
+	FauxScrollFrameTemplate = function(frame)
+		frame.ScrollBar = NewWidget("Frame", nil, frame)
+		frame.ScrollChildFrame = NewWidget("Frame", nil, frame)
+	end,
 }
+
+-- SecureScrollTemplates.lua: the faux scroll frame shows itself only when the items
+-- do not fit, and keeps the first visible item index in frame.offset.
+function M.InstallFauxScrollFrame()
+	_G.FauxScrollFrame_Update = function(frame, numItems, numToDisplay, buttonHeight)
+		assert(type(buttonHeight) == "number" and buttonHeight > 0)
+		local scrolls = numItems > numToDisplay
+		frame:SetShown(scrolls)
+		frame._range = math.max(0, (numItems - numToDisplay) * buttonHeight)
+		frame.ScrollChildFrame:SetHeight(numItems * buttonHeight)
+		return scrolls and 1 or nil
+	end
+	_G.FauxScrollFrame_OnVerticalScroll = function(self, value, itemHeight, updateFunction)
+		self._scrollValue = value
+		self.offset = math.floor((value / itemHeight) + 0.5)
+		if updateFunction then
+			updateFunction(self)
+		end
+	end
+	_G.FauxScrollFrame_GetOffset = function(frame)
+		return frame.offset or 0
+	end
+end
 
 local function CreateFrame(frameType, name, parent, template)
 	local widget = NewWidget(frameType, name, parent)
@@ -462,7 +492,26 @@ function M.Create()
 		autoQuestPopUps = {},
 		settings = { categories = {}, checkboxes = {}, initializers = {}, opened = {} },
 		postCalls = {},
+		completed = {},
+		onQuest = {},
+		loadRequests = {},
+		-- uiMapID -> UiMapDetails (MapDocumentation.lua): name, mapType, parentMapID.
+		maps = {
+			[1415] = { name = "Eastern Kingdoms", mapType = 2, parentMapID = 947 },
+			[1429] = { name = "Elwynn Forest", mapType = 3, parentMapID = 1415 },
+			[1453] = { name = "Stormwind City", mapType = 3, parentMapID = 1415 },
+			[1411] = { name = "Durotar", mapType = 3, parentMapID = 1414 },
+			[1438] = { name = "Teldrassil", mapType = 3, parentMapID = 1414 },
+			[2001] = { name = "Northshire Abbey", mapType = 5, parentMapID = 1429 },
+		},
+		waypoint = nil,
+		superTracked = false,
+		objectiveText = nil,
+		requiredItems = {},
+		playerClass = "Warrior",
+		playerRace = "Human",
 	}
+	env.units.player = { guid = "Player-1234-0ABCDEF0", name = "Tester" }
 
 	M.eventFrames = {}
 	M.created = {}
@@ -527,9 +576,29 @@ function M.Create()
 	_G.UnitFactionGroup = function()
 		return "Alliance", "Alliance"
 	end
+	_G.UnitClass = function()
+		return env.playerClass, env.playerClass:upper(), 1
+	end
+	_G.UnitRace = function()
+		return env.playerRace, env.playerRace, 1
+	end
 	_G.C_Map = {
 		GetBestMapForUnit = function()
-			return 1429
+			return env.playerMap or 1429
+		end,
+		GetMapInfo = function(mapID)
+			local info = env.maps[mapID]
+			if not info then
+				return nil
+			end
+			return { mapID = mapID, name = info.name, mapType = info.mapType, parentMapID = info.parentMapID }
+		end,
+		CanSetUserWaypointOnMap = function(mapID)
+			return env.maps[mapID] ~= nil and env.maps[mapID].mapType >= 3
+		end,
+		SetUserWaypoint = function(point)
+			assert(type(point) == "table" and point.uiMapID and point.position, "SetUserWaypoint takes a UiMapPoint")
+			env.waypoint = point
 		end,
 		GetPlayerMapPosition = function()
 			if not env.position then
@@ -542,7 +611,23 @@ function M.Create()
 			}
 		end,
 	}
+	_G.UiMapPoint = {
+		CreateFromCoordinates = function(mapID, x, y, z)
+			return { uiMapID = mapID, position = { x = x, y = y }, z = z }
+		end,
+	}
+	_G.C_SuperTrack = {
+		SetSuperTrackedUserWaypoint = function(superTracked)
+			env.superTracked = superTracked
+		end,
+	}
 	_G.C_QuestLog = {
+		IsQuestFlaggedCompleted = function(questID)
+			return env.completed[questID] == true
+		end,
+		IsOnQuest = function(questID)
+			return env.onQuest[questID] == true
+		end,
 		GetSelectedQuest = function()
 			return env.selectedQuestID
 		end,
@@ -552,7 +637,9 @@ function M.Create()
 		GetQuestDifficultyLevel = function(questID)
 			return env.questLevels[questID] or 0
 		end,
-		RequestLoadQuestByID = function() end,
+		RequestLoadQuestByID = function(questID)
+			table.insert(env.loadRequests, questID)
+		end,
 		GetNumQuestLogEntries = function()
 			return #env.questLog, #env.questLog
 		end,
@@ -582,6 +669,21 @@ function M.Create()
 	_G.GetTitleText = function()
 		return env.currentQuestTitle
 	end
+	_G.GetObjectiveText = function()
+		return env.objectiveText or ""
+	end
+	_G.GetNumQuestItems = function()
+		return #env.requiredItems
+	end
+	-- QuestInfo.lua: name, texture, numItems, quality, isUsable, itemID, questRewardContextFlags.
+	_G.GetQuestItemInfo = function(itemType, index)
+		assert(itemType == "required" or itemType == "reward" or itemType == "choice")
+		local item = itemType == "required" and env.requiredItems[index]
+		if not item then
+			return nil
+		end
+		return item.name, 134400, item.count or 1, 1, true, item.id, 0
+	end
 	_G.GetNumAvailableQuests = function()
 		return #env.greeting.available
 	end
@@ -603,7 +705,10 @@ function M.Create()
 
 	_G.GameTooltip = NewTooltip("GameTooltip")
 	_G.EventRegistry = NewCallbackRegistry()
-	_G.Enum = { TooltipDataType = { Quest = 23 } }
+	_G.Enum = {
+		TooltipDataType = { Unit = 2, Quest = 23 },
+		UIMapType = { Cosmic = 0, World = 1, Continent = 2, Zone = 3, Dungeon = 4, Micro = 5, Orphan = 6 },
+	}
 	_G.TooltipDataProcessor = {
 		AddTooltipPostCall = function(tooltipType, func)
 			env.postCalls[tooltipType] = env.postCalls[tooltipType] or {}
@@ -611,6 +716,7 @@ function M.Create()
 		end,
 	}
 
+	M.InstallFauxScrollFrame()
 	M.InstallSettings(env)
 	M.InstallQuestFrame(env)
 	M.InstallGossip(env)
@@ -632,6 +738,14 @@ function M.Create()
 		for _, callback in ipairs(pending) do
 			callback()
 		end
+	end
+
+	function env:ShowTooltipForUnit(guid)
+		GameTooltip:SetOwner(UIParent, "ANCHOR_CURSOR")
+		for _, func in ipairs(self.postCalls[Enum.TooltipDataType.Unit] or {}) do
+			func(GameTooltip, { type = Enum.TooltipDataType.Unit, guid = guid })
+		end
+		return GameTooltip.lines
 	end
 
 	function env:ShowTooltipForQuest(questID)

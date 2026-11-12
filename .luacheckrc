@@ -22,6 +22,10 @@ ignore = { "212/self", "212/_.*", "213/_.*" }
 -- Globals the addon owns and writes.
 globals = {
 	"ForeverQuestMarkerDB",
+	-- Called by the minimap addon compartment through the TOC's AddonCompartmentFunc fields.
+	"ForeverQuestMarker_OnAddonCompartmentClick",
+	"ForeverQuestMarker_OnAddonCompartmentEnter",
+	"ForeverQuestMarker_OnAddonCompartmentLeave",
 	"SLASH_FOREVERQUESTMARKER1",
 	"SLASH_FOREVERQUESTMARKER2",
 	SlashCmdList = { fields = { "FOREVERQUESTMARKER" } },
@@ -42,12 +46,14 @@ local WOW_READ_GLOBALS = {
 	"C_GossipInfo",
 	"C_Map",
 	"C_QuestLog",
+	"C_SuperTrack",
 	"C_Timer",
 	"Enum",
 	"EventRegistry",
 	"ScrollUtil",
 	"Settings",
 	"TooltipDataProcessor",
+	"UiMapPoint",
 
 	-- Global API functions
 	"CreateFrame",
@@ -61,15 +67,23 @@ local WOW_READ_GLOBALS = {
 	"GetLocale",
 	"GetNumActiveQuests",
 	"GetNumAvailableQuests",
+	"GetNumQuestItems",
+	"GetObjectiveText",
 	"GetQuestID",
+	"GetQuestItemInfo",
 	"GetTitleText",
 	"InCombatLockdown",
+	"UnitClass",
 	"UnitFactionGroup",
 	"UnitGUID",
 	"UnitName",
+	"UnitRace",
 
 	-- FrameXML frames, functions and constants
 	"ChatFontNormal",
+	"FauxScrollFrame_GetOffset",
+	"FauxScrollFrame_OnVerticalScroll",
+	"FauxScrollFrame_Update",
 	"GameTooltip",
 	"GOSSIP_BUTTON_TYPE_ACTIVE_QUEST",
 	"GOSSIP_BUTTON_TYPE_AVAILABLE_QUEST",
@@ -103,6 +117,7 @@ files["tests/"] = {
 		"GOSSIP_BUTTON_TYPE_OPTION",
 		"GOSSIP_BUTTON_TYPE_TITLE",
 		"ForeverQuestMarkerExportFrame",
+		"ForeverQuestMarkerJournal",
 		"ScrollBoxListMixin",
 		"SLASH_FOREVERQUESTMARKER1",
 	},

@@ -9,6 +9,30 @@ Before tagging a release, rename `Unreleased` to the version and date, for examp
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-12
+
+### Added
+
+- NPC tooltips: hovering a quest giver lists the new Forever quests it offers, which ones you have
+  done and which are in your log. Quest givers come from community reports shipped with the addon
+  and from the quests you have met yourself. Options to turn it off or hide completed quests.
+- Journal (`/fqm journal`, the settings, or the minimap addon menu): your progress through Forever's
+  new quests, overall and by zone, with a progress bar and a filter for completed quests.
+- Waypoints: click a quest in the journal, or `/fqm track <questID>`, to put the game's own map pin
+  on its quest giver and track it.
+- Minimap addon compartment entry: left-click opens the journal, right-click the settings, and the
+  tooltip shows your progress.
+- Changed Classic quests now say what changed (quest giver, turn-in, objectives, required items,
+  title or level) when the community data knows.
+
+### Changed
+
+- The recorder also notes the turn-in NPC, the item IDs a quest asks for and a hash of the objective
+  text, so changed Classic quests can be detected. `/fqm export` writes format version 2; the
+  submission page accepts both versions.
+- `/fqm check` shows where a quest is picked up and what changed in it; `/fqm status` counts the
+  community quest givers and change details.
+
 ## [0.1.8] - 2026-11-12
 
 ### Changed

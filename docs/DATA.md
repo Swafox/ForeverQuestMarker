@@ -13,6 +13,17 @@
 
 Pins for every upstream revision are in `dataset/sources.json`; downloads are cached in `.cache/`.
 
+Two more community files describe quests rather than classify them:
+
+| File                             | Generated file     | Contents                                                                                                                                       |
+| -------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dataset/community/places.json`  | `Data/Places.lua`  | Quest giver (NPC, object or item ID) of new quests, with the uiMapID and position where players met it when they agree on one. Merge pipeline. |
+| `dataset/community/changed.json` | `Data/Changes.lua` | The optional `kinds` of each changed Classic quest: `title`, `level`, `giver`, `finisher`, `objectives`, `items`. Human reviewed.              |
+
+Neither holds any text: only IDs, map positions and kind names. The client's own tables cannot
+replace `places.json`: quest givers are server data, and the Forever client's `QuestPOIBlob` table
+covers only 57 quests.
+
 Findings worth knowing:
 
 - QuestieDB's own Forever flavor (`data/Forever/foreverQuestDB.lua`) currently has exactly the same

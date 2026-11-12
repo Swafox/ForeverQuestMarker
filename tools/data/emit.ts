@@ -46,8 +46,37 @@ export interface EmittedFiles {
   [relativePath: string]: string;
 }
 
+/** Lua source for a number; coordinates keep their JSON spelling (0.45, not 0.45000). */
+function luaNumber(value: number): string {
+  return Number.isInteger(value) ? String(value) : JSON.stringify(value);
+}
+
+function placesTable(places: BuildResult["places"]): string {
+  if (places.length === 0) return "ns.Data.places = {}";
+  const rows = places.map((entry) => {
+    const fields = [`"${entry.giver.type}"`, luaNumber(entry.giver.id)];
+    if (entry.map !== undefined)
+      fields.push(
+        luaNumber(entry.map),
+        luaNumber(entry.x!),
+        luaNumber(entry.y!),
+      );
+    return `\t[${entry.id}] = { ${fields.join(", ")} },`;
+  });
+  return ["ns.Data.places = {", ...rows, "}"].join("\n");
+}
+
+function changeKindsTable(changeKinds: BuildResult["changeKinds"]): string {
+  if (changeKinds.length === 0) return "ns.Data.changeKinds = {}";
+  const rows = changeKinds.map(
+    (entry) =>
+      `\t[${entry.id}] = { ${entry.kinds.map((kind) => `"${kind}"`).join(", ")} },`,
+  );
+  return ["ns.Data.changeKinds = {", ...rows, "}"].join("\n");
+}
+
 export function emitAll(result: BuildResult): EmittedFiles {
-  const { sets, pins } = result;
+  const { sets, pins, places, changeKinds } = result;
   const questie = `${pins.questieDB.repo}@${pins.questieDB.commit.slice(0, 12)}`;
   const encoded = Object.fromEntries(
     Object.entries(sets).map(([name, ids]) => [name, encodeSet(ids)]),
@@ -67,6 +96,7 @@ export function emitAll(result: BuildResult): EmittedFiles {
         ...Object.entries(sets).map(
           ([name, ids]) => `\t\t${name} = ${ids.length},`,
         ),
+        `\t\tplaces = ${places.length},`,
         "\t},",
         "}",
       ].join("\n"),
@@ -107,6 +137,48 @@ export function emitAll(result: BuildResult): EmittedFiles {
     ],
     [luaSet("sod", encoded.sod), luaSet("era", encoded.era)],
   );
+
+  files["Data/Places.lua"] = luaFile(
+    [
+      "Who offers new Forever quests and where, as several players agree on it",
+      "(dataset/community/places.json, from player reports via tools/merge-submissions.ts).",
+      "[questID] = { giverType, giverID[, uiMapID, x, y] }; giverType is npc, object or item.",
+    ],
+    [placesTable(places)],
+  );
+
+  files["Data/Changes.lua"] = luaFile(
+    [
+      "What players confirmed as modified in original Classic quests (dataset/community/changed.json).",
+      "[questID] = { kind, ... }; kinds: title, level, giver, finisher, objectives, items.",
+      "Changed quests without confirmed details are listed only in ForeverQuests.lua.",
+    ],
+    [changeKindsTable(changeKinds)],
+  );
+
+  files["tests/fixtures/community_data.lua"] = [
+    HEADER,
+    "-- Plain copies of dataset/community/places.json and the kinds in changed.json for the specs.",
+    "return {",
+    "\tplaces = {",
+    ...places.map(
+      (entry) =>
+        `\t\t{ id = ${entry.id}, giverType = "${entry.giver.type}", giverId = ${entry.giver.id}` +
+        (entry.map === undefined
+          ? ""
+          : `, map = ${entry.map}, x = ${luaNumber(entry.x!)}, y = ${luaNumber(entry.y!)}`) +
+        " },",
+    ),
+    "\t},",
+    "\tchangeKinds = {",
+    ...changeKinds.map(
+      (entry) =>
+        `\t\t{ id = ${entry.id}, kinds = { ${entry.kinds.map((kind) => `"${kind}"`).join(", ")} } },`,
+    ),
+    "\t},",
+    "}",
+    "",
+  ].join("\n");
 
   files["tests/fixtures/quest_sets.lua"] = [
     HEADER,

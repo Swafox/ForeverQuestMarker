@@ -188,7 +188,8 @@ export const PAGE_HTML = `<!doctype html>
   </section>
 
   <footer>
-    <p>The export contains quest IDs, titles, levels, quest givers and map positions, plus a random installation ID.
+    <p>The export contains quest IDs, titles, levels, who gives and completes each quest, the items it asks for, a
+    fingerprint of its objective text and map positions, plus a random installation ID.
     It contains no character, realm or account names. Your IP address is only kept as a keyed hash, to limit abuse
     and to count independent reports.</p>
     <p>Data: <a href="/api/confirmed">confirmed quests (JSON)</a> and <a href="/api/stats">statistics (JSON)</a>.</p>

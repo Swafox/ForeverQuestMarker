@@ -17,10 +17,38 @@ export interface ConfirmedQuest {
   confirmedBy: string;
 }
 
+/** Agreement on one observed value: reports naming it out of all reports naming any. */
+export interface Agreement {
+  reports: number;
+  total: number;
+}
+
+export interface ActorObservation extends Agreement {
+  type: string;
+  id: number | null;
+}
+
+export interface PositionObservation extends Agreement {
+  map: number;
+  x: number;
+  y: number;
+}
+
+/** Where players met a confirmed or known new quest, as the Worker aggregates it. */
+export interface PlaceReport {
+  id: number;
+  reporters: number;
+  /** Null when no giver was reported, or the Worker predates agreement counts. */
+  giver: ActorObservation | null;
+  position: PositionObservation | null;
+}
+
 export interface ConfirmedResponse {
   generatedAt: string;
   foreverBuild: string | null;
   confirmed: ConfirmedQuest[];
+  /** Confirmed candidates and known new quests with giver and position reports. */
+  places: PlaceReport[];
 }
 
 export interface LocaleObservation {
@@ -32,11 +60,21 @@ export interface LocaleObservation {
   levelReports: number;
 }
 
+export interface ValueObservation extends Agreement {
+  value: string;
+}
+
 export interface ClassicObservation {
   id: number;
   reporters: number;
   level: { value: number; reports: number; total: number } | null;
   locales: Record<string, LocaleObservation>;
+  giver: ActorObservation | null;
+  finisher: ActorObservation | null;
+  /** Leading objective text hash per locale. */
+  objectives: Record<string, ValueObservation>;
+  /** Leading hand-in item set, IDs ascending and comma-separated. */
+  items: ValueObservation | null;
 }
 
 type Fields = Record<string, unknown>;
@@ -90,6 +128,72 @@ function title(value: unknown, path: string): string {
   return text;
 }
 
+const ACTOR_TYPES = ["npc", "object", "item", "unknown"];
+const HASH = /^[0-9a-f]{8}$/;
+const ITEM_LIST = /^[1-9]\d*(,[1-9]\d*)*$/;
+
+function agreement(entry: Fields, path: string): Agreement {
+  return {
+    reports: count(entry["reports"], `${path}.reports`),
+    total: count(entry["total"], `${path}.total`),
+  };
+}
+
+/**
+ * A giver or finisher summary. Workers deployed before agreement counts were
+ * added return no total; such an actor cannot show agreement and reads as null.
+ */
+function actor(value: unknown, path: string): ActorObservation | null {
+  if (value === null || value === undefined) return null;
+  const entry = object(value, path);
+  if (entry["total"] === undefined) return null;
+  const type = string(entry["type"], `${path}.type`);
+  if (!ACTOR_TYPES.includes(type)) fail(`${path}.type`, "is not a giver type");
+  const id =
+    entry["id"] === null || entry["id"] === undefined
+      ? null
+      : count(entry["id"], `${path}.id`);
+  return { type, id, ...agreement(entry, path) };
+}
+
+function coordinate(value: unknown, path: string): number {
+  if (typeof value !== "number" || !(value >= 0 && value <= 1))
+    fail(path, "must be a number between 0 and 1");
+  return value as number;
+}
+
+function position(value: unknown, path: string): PositionObservation | null {
+  if (value === null || value === undefined) return null;
+  const entry = object(value, path);
+  return {
+    map: questId(entry["map"], `${path}.map`),
+    x: coordinate(entry["x"], `${path}.x`),
+    y: coordinate(entry["y"], `${path}.y`),
+    ...agreement(entry, path),
+  };
+}
+
+function valueObservation(
+  value: unknown,
+  path: string,
+  pattern: RegExp,
+): ValueObservation {
+  const entry = object(value, path);
+  const text = string(entry["value"], `${path}.value`);
+  if (!pattern.test(text)) fail(`${path}.value`, "is malformed");
+  return { value: text, ...agreement(entry, path) };
+}
+
+function placeReport(value: unknown, path: string): PlaceReport {
+  const entry = object(value, path);
+  return {
+    id: questId(entry["id"], `${path}.id`),
+    reporters: count(entry["reporters"], `${path}.reporters`),
+    giver: actor(entry["giver"], `${path}.giver`),
+    position: position(entry["position"], `${path}.position`),
+  };
+}
+
 /** enUS if reported, otherwise the locale with the most reports (then by name). */
 export function pickTitle(
   titles: Record<string, { title: string; reports: number }>,
@@ -140,11 +244,20 @@ export function parseConfirmedResponse(json: unknown): ConfirmedResponse {
       };
     },
   );
+  const known =
+    body["known"] === undefined ? [] : array(body["known"], "known");
+  const places = [
+    ...array(body["confirmed"], "confirmed").map((value, index) =>
+      placeReport(value, `confirmed[${index}]`),
+    ),
+    ...known.map((value, index) => placeReport(value, `known[${index}]`)),
+  ];
   return {
     generatedAt: string(body["generatedAt"], "generatedAt"),
     foreverBuild:
       typeof meta["foreverBuild"] === "string" ? meta["foreverBuild"] : null,
     confirmed,
+    places,
   };
 }
 
@@ -172,6 +285,18 @@ export function parseClassicObservations(json: unknown): ClassicObservation[] {
           levelReports: count(observed["levelReports"], `${at}.levelReports`),
         };
       }
+      const objectives: Record<string, ValueObservation> = {};
+      if (entry["objectives"] !== undefined) {
+        for (const [locale, localeValue] of Object.entries(
+          object(entry["objectives"], `${path}.objectives`),
+        )) {
+          objectives[locale] = valueObservation(
+            localeValue,
+            `${path}.objectives.${locale}`,
+            HASH,
+          );
+        }
+      }
       const level =
         entry["level"] === null
           ? null
@@ -187,6 +312,13 @@ export function parseClassicObservations(json: unknown): ClassicObservation[] {
             }
           : null,
         locales,
+        giver: actor(entry["giver"], `${path}.giver`),
+        finisher: actor(entry["finisher"], `${path}.finisher`),
+        objectives,
+        items:
+          entry["items"] === null || entry["items"] === undefined
+            ? null
+            : valueObservation(entry["items"], `${path}.items`, ITEM_LIST),
       };
     },
   );

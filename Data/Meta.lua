@@ -14,5 +14,6 @@ ns.Data.meta = {
 		datamined = 1818,
 		community = 0,
 		changed = 0,
+		places = 0,
 	},
 }

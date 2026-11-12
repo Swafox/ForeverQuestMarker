@@ -109,6 +109,40 @@ function Display.GetReasonText(reason)
 	return REASON_TEXT[reason] or reason
 end
 
+-- What players reported as changed in an original Classic quest, in display order.
+local CHANGE_KINDS = { "title", "level", "giver", "finisher", "objectives", "items" }
+local CHANGE_TEXT = {
+	title = L.CHANGE_TITLE,
+	level = L.CHANGE_LEVEL,
+	giver = L.CHANGE_GIVER,
+	finisher = L.CHANGE_FINISHER,
+	objectives = L.CHANGE_OBJECTIVES,
+	items = L.CHANGE_ITEMS,
+}
+
+--- Localized list of what changed in a quest ("quest giver, objectives"), or nil
+--- when the community data does not say.
+function Display.GetChangeText(questID)
+	local kinds = ns.Data.changeKinds and ns.Data.changeKinds[questID]
+	if type(kinds) ~= "table" then
+		return nil
+	end
+	local present = {}
+	for _, kind in ipairs(kinds) do
+		present[kind] = true
+	end
+	local parts = {}
+	for _, kind in ipairs(CHANGE_KINDS) do
+		if present[kind] then
+			table.insert(parts, CHANGE_TEXT[kind])
+		end
+	end
+	if #parts == 0 then
+		return nil
+	end
+	return table.concat(parts, ", ")
+end
+
 --- Lines explaining a quest's state for tooltips, or nil when the quest is
 --- original Classic or tooltips are off. Returns headline, note, r, g, b.
 function Display.GetTooltipInfo(questID)
@@ -118,5 +152,12 @@ function Display.GetTooltipInfo(questID)
 	end
 	local state = Classifier.Classify(questID)
 	local color = Display.COLORS[marker]
-	return STATE_TEXT[state], STATE_NOTE[state], color[1], color[2], color[3]
+	local note = STATE_NOTE[state]
+	if state == State.CHANGED then
+		local changes = Display.GetChangeText(questID)
+		if changes then
+			note = L.STATE_CHANGED_DETAIL:format(changes)
+		end
+	end
+	return STATE_TEXT[state], note, color[1], color[2], color[3]
 end

@@ -59,10 +59,25 @@ export function parseDb2CsvIds(csv: string, label: string): number[] {
   return ids;
 }
 
+/** Creature, object and item IDs from a QuestieDB startedBy or finishedBy field. */
+export interface QuestieActors {
+  npcs: number[];
+  objects: number[];
+  items: number[];
+}
+
 export interface QuestieQuestFacts {
   name: string;
   questLevel: number | null;
   requiredLevel: number | null;
+  /** Who offers the quest (field 2); null when QuestieDB lists nobody. */
+  startedBy: QuestieActors | null;
+  /** Who completes the quest (field 3); null when QuestieDB lists nobody. */
+  finishedBy: QuestieActors | null;
+  /** Objective text lines (field 8); null for auto-completing quests. */
+  objectivesText: string[] | null;
+  /** Item objective IDs (field 10, third list), ascending. */
+  objectiveItems: number[];
 }
 
 /**
@@ -119,7 +134,134 @@ function parseIntField(field: string | undefined): number | null {
   return Number.isInteger(value) ? value : null;
 }
 
-/** Names and levels from a QuestieDB `questData` table, keyed by quest ID. */
+/** A Lua literal as QuestieDB writes it: nil, number, string or table. */
+export type LuaValue = null | boolean | number | string | LuaValue[];
+
+/**
+ * Parses one Lua literal. Tables become arrays indexed from 0 (Lua index 1);
+ * `[n] = value` entries land at index n - 1 and other keyed entries are
+ * dropped. Only covers the literal syntax QuestieDB emits.
+ */
+export function parseLuaLiteral(text: string): LuaValue {
+  let pos = 0;
+  const fail = (message: string): never => {
+    throw new Error(
+      `Lua literal: ${message} at ${pos} in ${text.slice(0, 80)}`,
+    );
+  };
+  const skip = () => {
+    while (pos < text.length && /\s/.test(text[pos]!)) pos++;
+  };
+  const value = (): LuaValue => {
+    skip();
+    const ch = text[pos];
+    if (ch === "{") return table();
+    if (ch === '"' || ch === "'") return string();
+    const word =
+      /^(nil|true|false|-?(?:0x[0-9a-fA-F]+|\d+(?:\.\d*)?(?:[eE][-+]?\d+)?))/.exec(
+        text.slice(pos),
+      );
+    if (!word) return fail("unexpected character");
+    pos += word[0].length;
+    if (word[0] === "nil") return null;
+    if (word[0] === "true") return true;
+    if (word[0] === "false") return false;
+    return Number(word[0]);
+  };
+  const string = (): string => {
+    const quote = text[pos++];
+    let result = "";
+    while (pos < text.length && text[pos] !== quote) {
+      if (text[pos] === "\\") {
+        const next = text[pos + 1] ?? "";
+        result += next === "n" ? "\n" : next;
+        pos += 2;
+      } else {
+        result += text[pos++];
+      }
+    }
+    if (pos >= text.length) fail("unterminated string");
+    pos++;
+    return result;
+  };
+  const table = (): LuaValue[] => {
+    pos++;
+    const result: LuaValue[] = [];
+    let index = 0;
+    for (;;) {
+      skip();
+      if (text[pos] === "}") {
+        pos++;
+        return result;
+      }
+      if (text[pos] === "[") {
+        pos++;
+        const key = value();
+        skip();
+        if (text[pos] !== "]") fail("expected ]");
+        pos++;
+        skip();
+        if (text[pos] !== "=") fail("expected =");
+        pos++;
+        const entry = value();
+        if (typeof key === "number" && Number.isInteger(key) && key >= 1)
+          result[key - 1] = entry;
+      } else {
+        result[index++] = value();
+      }
+      skip();
+      if (text[pos] === "," || text[pos] === ";") pos++;
+      else if (text[pos] !== "}") fail("expected , or }");
+    }
+  };
+  const result = value();
+  skip();
+  if (pos !== text.length) fail("trailing text");
+  return result;
+}
+
+function idList(value: LuaValue | undefined): number[] {
+  if (!Array.isArray(value)) return [];
+  const ids = new Set<number>();
+  for (const entry of value) {
+    // Lists hold IDs directly ({288}) or as the first element of a row ({{3421, "text"}}).
+    const id = Array.isArray(entry) ? entry[0] : entry;
+    if (typeof id === "number" && Number.isInteger(id) && id > 0) ids.add(id);
+  }
+  return [...ids].sort((a, b) => a - b);
+}
+
+function actors(field: string | undefined): QuestieActors | null {
+  if (!field || field === "nil") return null;
+  const value = parseLuaLiteral(field);
+  if (!Array.isArray(value)) return null;
+  const result = {
+    npcs: idList(value[0]),
+    objects: idList(value[1]),
+    items: idList(value[2]),
+  };
+  return result.npcs.length + result.objects.length + result.items.length > 0
+    ? result
+    : null;
+}
+
+function textLines(field: string | undefined): string[] | null {
+  if (!field || field === "nil") return null;
+  const value = parseLuaLiteral(field);
+  if (!Array.isArray(value)) return null;
+  const lines = value.filter(
+    (line): line is string => typeof line === "string",
+  );
+  return lines.length > 0 ? lines : null;
+}
+
+function objectiveItems(field: string | undefined): number[] {
+  if (!field || field === "nil") return [];
+  const value = parseLuaLiteral(field);
+  return Array.isArray(value) ? idList(value[2]) : [];
+}
+
+/** Names, levels, givers, finishers and objectives from a QuestieDB `questData` table, keyed by quest ID. */
 export function parseQuestieQuestFacts(
   source: string,
 ): Map<number, QuestieQuestFacts> {
@@ -134,6 +276,10 @@ export function parseQuestieQuestFacts(
       name: unquoteLuaString(nameField),
       requiredLevel: parseIntField(fields[3]),
       questLevel: parseIntField(fields[4]),
+      startedBy: actors(fields[1]),
+      finishedBy: actors(fields[2]),
+      objectivesText: textLines(fields[7]),
+      objectiveItems: objectiveItems(fields[9]),
     });
   }
   return facts;

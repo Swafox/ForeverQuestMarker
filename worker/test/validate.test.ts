@@ -56,6 +56,9 @@ describe("valid documents", () => {
       state: "classic",
       level: null,
       giver: null,
+      finisher: null,
+      objectivesHash: null,
+      items: null,
       map: null,
       x: null,
       y: null,
@@ -159,7 +162,7 @@ describe("document-level errors", () => {
       ),
     ).toEqual(["format"]);
     expect(
-      paths(errorsFor(exportDocument([questRecord(120001)], { version: 2 }))),
+      paths(errorsFor(exportDocument([questRecord(120001)], { version: 3 }))),
     ).toEqual(["version"]);
     expect(
       paths(errorsFor(exportDocument([questRecord(120001)], { version: "1" }))),

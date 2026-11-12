@@ -3,10 +3,23 @@
  * Classic data. The result is a report for human review; nothing is applied
  * to dataset/community/changed.json automatically.
  */
-import type { QuestieQuestFacts } from "../data/parse";
-import type { ClassicObservation } from "./workerApi";
+import type { QuestieActors, QuestieQuestFacts } from "../data/parse";
+import { questieObjectivesHash } from "./objectivesHash";
+import type {
+  ActorObservation,
+  Agreement,
+  ClassicObservation,
+} from "./workerApi";
 
-export type ChangeKind = "title" | "level";
+export const CHANGE_KINDS = [
+  "title",
+  "level",
+  "giver",
+  "finisher",
+  "objectives",
+  "items",
+] as const;
+export type ChangeKind = (typeof CHANGE_KINDS)[number];
 
 export interface ChangeCandidate {
   id: number;
@@ -20,6 +33,8 @@ export interface ChangeCandidate {
   observedLevel: number | null;
   levelReports: number;
   levelTotal: number;
+  /** One line per changed giver, finisher, objectives or items value. */
+  details: string[];
   /** Already listed in dataset/community/changed.json. */
   alreadyRecorded: boolean;
 }
@@ -50,6 +65,45 @@ function agreed(
   options: ChangeOptions,
 ): boolean {
   return reports >= options.minReports && total > 0 && reports * 3 >= total * 2;
+}
+
+function agreedValue(value: Agreement | null, options: ChangeOptions): boolean {
+  return value !== null && agreed(value.reports, value.total, options);
+}
+
+/** QuestieDB's IDs for an observed giver or finisher type, or null without a baseline. */
+function baselineIds(
+  actors: QuestieActors | null,
+  type: string,
+): number[] | null {
+  if (!actors) return null;
+  if (type === "npc") return actors.npcs;
+  if (type === "object") return actors.objects;
+  if (type === "item") return actors.items;
+  return null;
+}
+
+function describeActors(actors: QuestieActors): string {
+  const parts = [
+    ...actors.npcs.map((id) => `npc ${id}`),
+    ...actors.objects.map((id) => `object ${id}`),
+    ...actors.items.map((id) => `item ${id}`),
+  ];
+  return parts.join(", ");
+}
+
+/** An agreed giver or finisher that QuestieDB does not list, as a report line. */
+function actorChange(
+  label: string,
+  observed: ActorObservation | null,
+  baseline: QuestieActors | null,
+  options: ChangeOptions,
+): string | null {
+  if (!observed || observed.id === null || !agreedValue(observed, options))
+    return null;
+  const ids = baselineIds(baseline, observed.type);
+  if (ids === null || ids.includes(observed.id)) return null;
+  return `${label}: ${observed.type} ${observed.id} (${observed.reports}/${observed.total}); QuestieDB: ${describeActors(baseline!)}`;
 }
 
 export function findChangeCandidates(
@@ -87,13 +141,64 @@ export function findChangeCandidates(
       fact.questLevel > 0 &&
       level.value !== fact.questLevel;
 
-    if (!titleChanged && !levelChanged) continue;
+    const kinds: ChangeKind[] = [
+      ...(titleChanged ? ["title" as const] : []),
+      ...(levelChanged ? ["level" as const] : []),
+    ];
+    const details: string[] = [];
+
+    const giver = actorChange(
+      "giver",
+      observation.giver,
+      fact.startedBy,
+      options,
+    );
+    if (giver) {
+      kinds.push("giver");
+      details.push(giver);
+    }
+    const finisher = actorChange(
+      "finisher",
+      observation.finisher,
+      fact.finishedBy,
+      options,
+    );
+    if (finisher) {
+      kinds.push("finisher");
+      details.push(finisher);
+    }
+
+    const baselineHash = fact.objectivesText
+      ? questieObjectivesHash(fact.objectivesText)
+      : null;
+    const hash = TITLE_LOCALES.map(
+      (locale) => observation.objectives[locale],
+    ).find((entry) => entry !== undefined);
+    if (
+      baselineHash !== null &&
+      hash !== undefined &&
+      agreedValue(hash, options) &&
+      hash.value !== baselineHash
+    ) {
+      kinds.push("objectives");
+      details.push(
+        `objectives: text hash ${hash.value} (${hash.reports}/${hash.total}); QuestieDB text hashes to ${baselineHash}`,
+      );
+    }
+
+    const items = observation.items;
+    const baselineItems = fact.objectiveItems.join(",");
+    if (items && agreedValue(items, options) && items.value !== baselineItems) {
+      kinds.push("items");
+      details.push(
+        `items: ${items.value} (${items.reports}/${items.total}); QuestieDB: ${baselineItems || "none"}`,
+      );
+    }
+
+    if (kinds.length === 0) continue;
     candidates.push({
       id: observation.id,
-      kinds: [
-        ...(titleChanged ? ["title" as const] : []),
-        ...(levelChanged ? ["level" as const] : []),
-      ],
+      kinds,
       questieName: fact.name,
       questieLevel: fact.questLevel,
       observedTitle: titleAgreed ? english.title : null,
@@ -102,6 +207,7 @@ export function findChangeCandidates(
       observedLevel: levelAgreed ? level.value : null,
       levelReports: level?.reports ?? 0,
       levelTotal: level?.total ?? 0,
+      details,
       alreadyRecorded: recorded.has(observation.id),
     });
   }
@@ -137,13 +243,14 @@ export function renderChangeReport(
     `Observed Classic quests: ${comparison.observed}; without a QuestieDB baseline: ${comparison.withoutBaseline}.`,
     "",
     "These are not applied automatically. Check each one in game, then add confirmed changes to",
-    "`dataset/community/changed.json` (with a note) and run `bun tools/generate-data.ts`.",
+    "`dataset/community/changed.json` (with a note and the confirmed `kinds`) and run",
+    "`bun tools/generate-data.ts`.",
     "",
   ];
 
   const table = (candidates: ChangeCandidate[]) => [
-    "| ID | Changed | QuestieDB title | Observed title (reports) | QuestieDB level | Observed level (reports) |",
-    "| ---: | --- | --- | --- | ---: | --- |",
+    "| ID | Changed | QuestieDB title | Observed title (reports) | QuestieDB level | Observed level (reports) | Details |",
+    "| ---: | --- | --- | --- | ---: | --- | --- |",
     ...candidates.map((candidate) =>
       [
         "",
@@ -153,6 +260,7 @@ export function renderChangeReport(
         ` ${candidate.observedTitle === null ? "-" : `${cell(candidate.observedTitle)} (${candidate.titleReports}/${candidate.titleTotal})`} `,
         ` ${candidate.questieLevel ?? "-"} `,
         ` ${candidate.observedLevel === null ? "-" : `${candidate.observedLevel} (${candidate.levelReports}/${candidate.levelTotal})`} `,
+        ` ${candidate.details.length === 0 ? "-" : candidate.details.map(cell).join("<br>")} `,
         "",
       ].join("|"),
     ),

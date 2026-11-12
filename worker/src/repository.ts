@@ -15,7 +15,7 @@ import type {
   SubmissionMeta,
 } from "./model";
 import type { CandidateStatus } from "./promotion";
-import type { Vote, VoteDimension } from "./summary";
+import { emptySummary, type Vote, type VoteDimension } from "./summary";
 
 export class WriteConflictError extends Error {
   constructor() {
@@ -42,6 +42,11 @@ const OBSERVATION_COLUMNS = [
   ["giver_type", "giverType"],
   ["giver_id", "giverId"],
   ["giver_name", "giverName"],
+  ["finisher_type", "finisherType"],
+  ["finisher_id", "finisherId"],
+  ["finisher_name", "finisherName"],
+  ["objectives_hash", "objectivesHash"],
+  ["items", "items"],
   ["map", "map"],
   ["x", "x"],
   ["y", "y"],
@@ -143,9 +148,13 @@ export function jsonChunks(
 
 function questFromDb(row: DbRow): QuestRow {
   const quest = fromDb<QuestRow & { summary: unknown }>(row, QUEST_COLUMNS);
+  // Summaries stored before a field existed lack it until the quest's next report.
   return {
     ...quest,
-    summary: JSON.parse(String(quest.summary)) as QuestRow["summary"],
+    summary: {
+      ...emptySummary(),
+      ...(JSON.parse(String(quest.summary)) as Partial<QuestRow["summary"]>),
+    },
   };
 }
 

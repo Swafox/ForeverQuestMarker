@@ -41,7 +41,23 @@ beforeAll(() => {
               confirmedBy: "auto",
             },
           ],
-          known: [],
+          known: [
+            {
+              id: 99048,
+              titles: { enUS: { title: "A Missing Hand", reports: 2 } },
+              reporters: 2,
+              firstReported: "2026-09-20T10:00:00.000Z",
+              giver: {
+                type: "npc",
+                id: 3142,
+                name: "Orgnil Soulscar",
+                reports: 2,
+                total: 2,
+              },
+              position: { map: 1411, x: 0.45, y: 0.61, reports: 2, total: 2 },
+              source: "datamined",
+            },
+          ],
         });
       }
       return new Response("not found", { status: 404 });
@@ -82,6 +98,9 @@ describe("merge-submissions --dry-run", () => {
       "confirmed.json",
     );
     const before = await Bun.file(confirmedPath).text();
+    const placesBefore = await Bun.file(
+      join(REPO_ROOT, "dataset", "community", "places.json"),
+    ).text();
     const { code, out, err } = await run([
       "--worker",
       `http://127.0.0.1:${server.port}`,
@@ -95,9 +114,16 @@ describe("merge-submissions --dry-run", () => {
     expect(out).toContain(
       "Warning: the Worker was deployed with data for Forever build 0.0.0.1",
     );
+    expect(out).toContain("+ 99048: npc 3142 at map 1411 (0.45, 0.61)");
     expect(out).toContain("Dry run: nothing written.");
+    expect(out).toContain("places.json would gain 1 and update 0 entries.");
     expect(requests).toEqual([{ path: "/api/confirmed", authorization: null }]);
     expect(await Bun.file(confirmedPath).text()).toBe(before);
+    expect(
+      await Bun.file(
+        join(REPO_ROOT, "dataset", "community", "places.json"),
+      ).text(),
+    ).toBe(placesBefore);
   });
 
   test("fails clearly when the Worker answers with an error", async () => {

@@ -47,7 +47,7 @@ export function questRecord(id: number, overrides: Json = {}): Json {
 export function exportDocument(quests: Json[], overrides: Json = {}): Json {
   return {
     format: "ForeverQuestMarker",
-    version: 1,
+    version: 2,
     addonVersion: "0.1.0",
     clientId: clientId(1),
     build: "1.60.1.69977",

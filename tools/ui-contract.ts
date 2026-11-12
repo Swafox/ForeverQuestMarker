@@ -286,6 +286,94 @@ export const CONTRACT: ContractCheck[] = [
   lua("GameTooltip:IsOwned", "UI/Tooltip.lua", /GameTooltip:IsOwned\(/),
   docs("IsForbidden", "UI/Tooltip.lua", /Name = "IsForbidden"/),
 
+  // NPC tooltips (UI/UnitTooltip.lua)
+  docs(
+    "Enum.TooltipDataType.Unit",
+    "UI/UnitTooltip.lua",
+    /\{ Name = "Unit", Type = "TooltipDataType", EnumValue = \d+ \}/,
+  ),
+  lua(
+    "unit tooltip data carries the GUID",
+    "UI/UnitTooltip.lua",
+    /if tooltip:IsTooltipType\(Enum\.TooltipDataType\.Unit\) then[\s\S]{0,120}local guid = tooltipData\.guid;/,
+  ),
+
+  // Journal and waypoints (UI/Journal.lua, Core/Places.lua, Core/Progress.lua)
+  docs(
+    "UiMapDetails name, mapType and parentMapID",
+    "Core/Places.lua",
+    /Name = "UiMapDetails",[\s\S]*?Name = "name"[\s\S]*?Name = "mapType"[\s\S]*?Name = "parentMapID"/,
+  ),
+  docs(
+    "Enum.UIMapType.Zone",
+    "Core/Places.lua",
+    /\{ Name = "Zone", Type = "UIMapType", EnumValue = 3 \}/,
+  ),
+  lua(
+    "UiMapPoint.CreateFromCoordinates",
+    "Core/Places.lua",
+    /^function UiMapPoint\.CreateFromCoordinates\(mapID, x, y, z\)/m,
+  ),
+  xml(
+    "FauxScrollFrameTemplate",
+    "UI/Journal.lua",
+    /<ScrollFrame name="FauxScrollFrameTemplate" inherits="UIPanelScrollFrameTemplate" virtual="true">/,
+  ),
+  lua(
+    "FauxScrollFrame_Update",
+    "UI/Journal.lua",
+    /^function FauxScrollFrame_Update\(frame, numItems, numToDisplay, buttonHeight/m,
+  ),
+  lua(
+    "FauxScrollFrame_OnVerticalScroll keeps the offset on the frame",
+    "UI/Journal.lua",
+    /^function FauxScrollFrame_OnVerticalScroll\(self, value, itemHeight, updateFunction\)[\s\S]{0,120}self\.offset = math\.floor\(\(value \/ itemHeight\) \+ 0\.5\);/m,
+  ),
+  lua(
+    "FauxScrollFrame_GetOffset",
+    "UI/Journal.lua",
+    /^function FauxScrollFrame_GetOffset\(frame\)/m,
+  ),
+  lua(
+    "anonymous faux scroll frames use parent keys",
+    "UI/Journal.lua",
+    /return frame\.ScrollBar, frame\.ScrollChildFrame, frame\.ScrollBar\.ScrollUpButton, frame\.ScrollBar\.ScrollDownButton;/,
+  ),
+  xml(
+    "scroll bars carry ScrollUpButton and ScrollDownButton parent keys",
+    "UI/Journal.lua",
+    /<Slider name="UIPanelScrollBarTemplate" virtual="true">[\s\S]{0,400}parentKey="ScrollUpButton"[\s\S]{0,600}parentKey="ScrollDownButton"/,
+  ),
+  xml(
+    "UIPanelButtonTemplate",
+    "UI/Journal.lua",
+    /name="UIPanelButtonTemplate"/,
+  ),
+
+  // Minimap addon compartment (TOC, Core/Slash.lua)
+  lua(
+    "compartment reads AddonCompartmentFunc from the TOC",
+    "ForeverQuestMarker.toc",
+    /C_AddOns\.GetAddOnMetadata\(addonIndex, "AddonCompartmentFunc"\)/,
+  ),
+  lua(
+    "compartment passes the mouse button",
+    "Core/Slash.lua",
+    /CallAddonGlobalFunc\(addonCompartmentFunc, name, menuInputData\.buttonName\);/,
+  ),
+  lua(
+    "compartment enter and leave callbacks",
+    "Core/Slash.lua",
+    /GetAddOnMetadata\(addonIndex, "AddonCompartmentFuncOnEnter"\)[\s\S]*GetAddOnMetadata\(addonIndex, "AddonCompartmentFuncOnLeave"\)/,
+  ),
+
+  // Change detection fields (Core/Recorder.lua)
+  lua(
+    "GetQuestItemInfo returns the item ID sixth",
+    "Core/Recorder.lua",
+    /name, texture, numItems, quality, isUsable, itemID[, \w]* = GetQuestItemInfo\(/,
+  ),
+
   // Settings (Options/Options.lua)
   lua(
     "Settings.RegisterVerticalLayoutCategory",
@@ -358,6 +446,12 @@ export const CONTRACT: ContractCheck[] = [
 
   // Namespaced API (docs)
   apiFunction("C_QuestLog", "GetSelectedQuest", "UI/QuestFrame.lua"),
+  apiFunction("C_QuestLog", "IsQuestFlaggedCompleted", "Core/Progress.lua"),
+  apiFunction("C_QuestLog", "IsOnQuest", "Core/Progress.lua"),
+  apiFunction("C_Map", "GetMapInfo", "Core/Places.lua"),
+  apiFunction("C_Map", "CanSetUserWaypointOnMap", "Core/Places.lua"),
+  apiFunction("C_Map", "SetUserWaypoint", "Core/Places.lua"),
+  apiFunction("C_SuperTrack", "SetSuperTrackedUserWaypoint", "Core/Places.lua"),
   apiFunction("C_QuestLog", "GetTitleForQuestID", "Core/Recorder.lua"),
   apiFunction("C_QuestLog", "GetQuestDifficultyLevel", "Core/Recorder.lua"),
   apiFunction("C_QuestLog", "RequestLoadQuestByID", "Core/Diagnostics.lua"),
@@ -402,9 +496,12 @@ export const CONTRACT: ContractCheck[] = [
     "QUEST_TURNED_IN",
     "QUEST_LOG_UPDATE",
     "QUEST_DATA_LOAD_RESULT",
+    "QUEST_REMOVED",
     "ADDON_LOADED",
     "PLAYER_LOGIN",
-  ].map((name) => event(name, "Core/Recorder.lua, Core/Bootstrap.lua")),
+  ].map((name) =>
+    event(name, "Core/Recorder.lua, Core/Bootstrap.lua, UI/Journal.lua"),
+  ),
 
   // Legacy globals and Lua extensions, proven by FrameXML using them
   ...[
@@ -419,6 +516,11 @@ export const CONTRACT: ContractCheck[] = [
     "UnitGUID",
     "UnitName",
     "UnitFactionGroup",
+    "UnitClass",
+    "UnitRace",
+    "GetObjectiveText",
+    "GetNumQuestItems",
+    "GetQuestItemInfo",
     "GetBuildInfo",
     "GetLocale",
     "InCombatLockdown",

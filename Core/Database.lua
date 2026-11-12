@@ -12,6 +12,8 @@ DB.DEFAULT_SETTINGS = {
 	markQuestLog = true,
 	markTracker = true,
 	tooltips = true,
+	unitTooltips = true,
+	unitTooltipsHideDone = false,
 	showInferred = true,
 	distinguishInferred = true,
 	showChanged = true,
@@ -55,6 +57,7 @@ function DB.Initialize()
 	saved.layout = type(saved.layout) == "table" and saved.layout or {}
 	saved.observations = type(saved.observations) == "table" and saved.observations or {}
 	saved.errors = type(saved.errors) == "table" and saved.errors or {}
+	saved.journal = type(saved.journal) == "table" and saved.journal or {}
 	if type(saved.clientId) ~= "string" or not saved.clientId:match("^%x+$") or #saved.clientId ~= 16 then
 		saved.clientId = NewClientId()
 	end

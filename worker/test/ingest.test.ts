@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { diffObservations, planIngest, type IngestInput } from "../src/ingest";
 import type { ObservationRow, QuestRow, SubmissionMeta } from "../src/model";
-import type { Vote } from "../src/summary";
+import { emptySummary, type Vote } from "../src/summary";
 import { validateExport, type QuestRecord } from "../src/validate";
 import {
   CANDIDATE_ID,
@@ -160,6 +160,7 @@ describe("planIngest", () => {
       ["level", 1],
       ["giver", 1],
       ["map", 1],
+      ["position", 1],
     ]);
   });
 
@@ -301,7 +302,7 @@ describe("planIngest", () => {
             statusChangedAt: NOW - 100,
             reporters: 1,
             networks: 1,
-            summary: { locales: {}, level: null, giver: null, map: null },
+            summary: emptySummary(),
             firstReported: NOW - 100,
             lastReported: NOW - 100,
           },

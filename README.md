@@ -9,13 +9,13 @@ quest in front of you is one you have done a hundred times or something you have
 
 ![Markers at in-game sizes on the quest window parchment and a dark panel](docs/media/badges-in-game-sizes.png)
 
-| Marker                | Meaning                                                                                             |
-| --------------------- | --------------------------------------------------------------------------------------------------- |
-| Solid gold star       | **New in WoW Forever.** Confirmed from Forever client data or player reports.                       |
-| Hollow gold star      | **Likely new.** Not in any Classic, Season of Discovery or Classic Era data, but not confirmed yet. |
-| Half-filled blue star | **Changed.** An original Classic quest that players reported as modified in Forever.                |
-| Violet diamond        | **Season of Discovery.** Not original Classic, but not new in Forever either.                       |
-| No marker             | Original Classic quest.                                                                             |
+| Marker                | Meaning                                                                                                                                                                                                   |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Solid gold star       | **New in WoW Forever.** Confirmed from Forever client data or player reports.                                                                                                                             |
+| Hollow gold star      | **Likely new.** Not in any Classic, Season of Discovery or Classic Era data, but not confirmed yet.                                                                                                       |
+| Half-filled blue star | **Changed.** An original Classic quest that players reported as modified in Forever. The tooltip says what changed (quest giver, turn-in, objectives, required items, title or level) when that is known. |
+| Violet diamond        | **Season of Discovery.** Not original Classic, but not new in Forever either.                                                                                                                             |
+| No marker             | Original Classic quest.                                                                                                                                                                                   |
 
 The states differ by shape as well as color, and an option adds a short text label (New, New?,
 Changed, SoD) for anyone who prefers words.
@@ -32,6 +32,20 @@ Changed, SoD) for anyone who prefers words.
 
 If another addon replaces the quest window (for example Immersion), the addon prints the quest's
 state in chat instead, so you still get the information.
+
+## Quest givers and the journal
+
+- **NPC tooltips**: hovering a quest giver lists the new Forever quests it offers, which ones you
+  have done and which are in your log ("New Forever quests: 3 (1 done)"). No extra map icons, no
+  clutter: the information is there when you look at the NPC.
+- **Journal** (`/fqm journal`, or the minimap addon menu): how many of Forever's new quests you have
+  completed, overall and by zone, with a progress bar and a filter for completed quests.
+- **Waypoints**: click a quest in the journal (or `/fqm track <questID>`) to put Blizzard's own map
+  pin on its quest giver and track it.
+
+Quest givers and their positions come from community reports, shipped with each addon update, plus
+the quests you have met yourself. The more players share their exports, the more of the map fills
+in.
 
 ## How quests are classified
 
@@ -54,6 +68,8 @@ explains how any quest ID is classified. See [docs/DATA.md](docs/DATA.md) for de
 | -------------------------------------- | ------------------------------------------------------------------------------------- |
 | `/fqm`                                 | Open the settings (Game Menu, Options, AddOns).                                       |
 | `/fqm check <questID>`                 | Explain how a quest ID is classified and why.                                         |
+| `/fqm journal`                         | Open the journal: your progress through Forever's new quests, by zone.                |
+| `/fqm track <questID>`                 | Set a map waypoint at a quest's giver, when its position is known.                    |
 | `/fqm export`                          | Open your recorded quests as JSON, ready to copy. `/fqm export csv` for spreadsheets. |
 | `/fqm status`                          | Show data versions, which windows are marked, and recorder counts.                    |
 | `/fqm probe`                           | List the quests the addon sees in the windows that are open right now.                |
@@ -64,10 +80,13 @@ explains how any quest ID is classified. See [docs/DATA.md](docs/DATA.md) for de
 ## Helping the community list
 
 The addon can remember the quests you meet that are not original Classic: ID, title, level, quest
-giver, and where you were. Nothing leaves your computer unless you choose to share it. `/fqm export`
+giver, and where you were. For original Classic quests (if you allow it) it also notes the turn-in
+NPC, the item IDs a quest asks for and a short hash of the objective text, which is how changed
+quests are found. Nothing leaves your computer unless you choose to share it. `/fqm export`
 produces a document you can paste on the submission page,
 <https://forever.swafox.com>; quests reported by several independent
-players are promoted from "likely new" to "confirmed" in a later release. The export contains no
+players are promoted from "likely new" to "confirmed" in a later release, and agreed quest givers and
+positions feed the NPC tooltips and the journal. The export contains no
 character name, realm or account data (see [docs/EXPORT_FORMAT.md](docs/EXPORT_FORMAT.md)). You can
 turn recording off in the settings.
 

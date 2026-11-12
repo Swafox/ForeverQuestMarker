@@ -20,6 +20,7 @@ reports catch new quests the datamine cannot see and record original Classic que
    v
  weekly CI     tools/merge-submissions.ts   (.github/workflows/merge-submissions.yml)
    |             new confirmed IDs -> dataset/community/confirmed.json (source "pipeline")
+   |             agreed quest givers of new quests -> dataset/community/places.json
    |             Classic observations vs QuestieDB -> .cache/change-candidates.md (not applied)
    |             bun tools/generate-data.ts -> Data/*.lua, test fixtures, worker questData
    v
@@ -32,22 +33,22 @@ reports a different Forever build than the checkout.
 
 ## What is stored
 
-| Table            | Contents                                                                                                                                                                                      |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `submissions`    | One row per accepted export: receipt ID, time, client ID, IP hash, addon version, build, locale, counts. Not the body.                                                                        |
-| `observations`   | One row per (client ID, quest ID) with the latest title, state, level, giver, map, position, faction, contexts and timestamps. A resubmission updates the row; it never adds a second report. |
-| `quest_votes`    | Counters derived from observations: titles, levels and givers per locale, maps. Maintained incrementally, so ingest cost does not grow with the number of reporters.                          |
-| `quest_networks` | Reporting installations per quest and network hash.                                                                                                                                           |
-| `quests`         | Per-quest aggregate: category, candidate status, reporter and network counts, summary.                                                                                                        |
-| `audit_log`      | Append-only history of every candidate status change: who (`auto` or `admin:<name>`), from, to, why, and the submission that caused it. The Worker never updates or deletes these rows.       |
-| `rate_limits`    | Hourly attempt counters per network and per installation; old windows are deleted.                                                                                                            |
+| Table            | Contents                                                                                                                                                                                                                                                |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `submissions`    | One row per accepted export: receipt ID, time, client ID, IP hash, addon version, build, locale, counts. Not the body.                                                                                                                                  |
+| `observations`   | One row per (client ID, quest ID) with the latest title, state, level, giver, finisher, objectives hash, hand-in items, map, position, faction, contexts and timestamps. A resubmission updates the row; it never adds a second report.                 |
+| `quest_votes`    | Counters derived from observations: titles, levels, givers, finishers and objective hashes per locale; maps, item sets and position cells (0.02 by 0.02 of a map). Maintained incrementally, so ingest cost does not grow with the number of reporters. |
+| `quest_networks` | Reporting installations per quest and network hash.                                                                                                                                                                                                     |
+| `quests`         | Per-quest aggregate: category, candidate status, reporter and network counts, summary.                                                                                                                                                                  |
+| `audit_log`      | Append-only history of every candidate status change: who (`auto` or `admin:<name>`), from, to, why, and the submission that caused it. The Worker never updates or deletes these rows.                                                                 |
+| `rate_limits`    | Hourly attempt counters per network and per installation; old windows are deleted.                                                                                                                                                                      |
 
 Privacy: the export has no character, realm, account or GUID data, and the Worker stores nothing
 beyond the fields above. The client ID is random per installation. Raw IP addresses are never stored:
 the Worker keeps `HMAC-SHA-256(IP_HASH_SALT, network)` truncated to 128 bits, where the network is the
 IPv4 address or the IPv6 /64 prefix. The hash is used only for rate limiting and for counting
-independent networks. The public endpoints expose aggregates only (titles, counts, most common giver
-and map), never client IDs or hashes.
+independent networks. The public endpoints expose aggregates only (titles, counts, the most common
+giver and position with how many reports agree), never client IDs or hashes.
 
 ## Validation and anti-poisoning
 
@@ -126,16 +127,50 @@ curl -H "Authorization: Bearer $T" "$W/api/admin/audit?quest=120001"
 Removing a quest that was already merged is a manual edit of `dataset/community/confirmed.json`; the
 merge script never deletes entries or modifies existing ones.
 
+## Quest givers
+
+`GET /api/confirmed` lists, for every confirmed candidate and known new quest, the most reported
+quest giver (`giver` with `reports` and `total`) and the most reported position cell (`position`:
+map, cell center, `reports`, `total`). The merge script records a quest in
+`dataset/community/places.json` once at least `--min-reports` (default 2) reports and two thirds of
+all giver reports name the same NPC, object or item; the map and position are added only when they
+agree the same way. Only quests the checkout classifies as new (datamined or community) are taken.
+An entry is replaced when the consensus moves to another giver or position, and kept when the Worker
+no longer reports it. Entries can be added or corrected by hand. The generator turns the file into
+`Data/Places.lua`, which the addon uses for NPC tooltips and journal waypoints.
+
 ## Change detection
 
 When players enable "Record Classic quests for change detection", their exports include original
-Classic quests. The Worker aggregates the observed title and level per locale
-(`GET /api/admin/classic-observations`). With an admin token, the merge script compares them with
-QuestieDB's Classic data at the pinned revision and writes `.cache/change-candidates.md`: quests whose
-enUS title or level differs, once at least two reports (`--min-reports`) and two thirds of them agree.
+Classic quests. The Worker aggregates per locale the observed title, level and objectives hash, and
+across locales the giver, finisher and hand-in items (`GET /api/admin/classic-observations`). With an
+admin token, the merge script compares them with QuestieDB's Classic data at the pinned revision and
+writes `.cache/change-candidates.md`. A value counts once at least two reports (`--min-reports`) and
+two thirds of them agree. A quest is a candidate when:
+
+| Kind         | Observed                            | QuestieDB baseline                                         |
+| ------------ | ----------------------------------- | ---------------------------------------------------------- |
+| `title`      | enUS (or enGB) title                | `name`                                                     |
+| `level`      | quest level                         | `questLevel`                                               |
+| `giver`      | NPC, object or item that offers it  | `startedBy` IDs of that type (skipped when none are known) |
+| `finisher`   | NPC or object that completes it     | `finishedBy` IDs of that type                              |
+| `objectives` | enUS (or enGB) objectives hash      | hash of `objectivesText` (skipped for gendered text)       |
+| `items`      | item IDs the progress page asks for | item objectives                                            |
+
 The report is attached to the weekly workflow run as the `change-candidates` artifact. Candidates are
 never applied automatically; after checking one in game, add it to `dataset/community/changed.json`
-with a note and run `bun tools/generate-data.ts`.
+with a note and the confirmed kinds, then run `bun tools/generate-data.ts`:
+
+```json
+{
+  "id": 783,
+  "note": "New quest giver in Elwynn, checked 2026-11-20",
+  "kinds": ["giver"]
+}
+```
+
+`kinds` is optional; the generator writes it to `Data/Changes.lua` and the addon names the kinds in
+the quest's tooltip.
 
 ## Merge script
 
@@ -146,7 +181,8 @@ bun tools/merge-submissions.ts --worker "$W" --admin-token "$T" # merge, report,
 
 It adds newly confirmed IDs that are not already in `confirmed.json` or in the local Classic,
 datamined, SoD or Era sets, sorted by ID with `source: "pipeline"` and a note such as
-`3 independent reports, first 2026-09-20`. When nothing is new it rewrites nothing. It then runs
+`3 independent reports, first 2026-09-20`, and updates `places.json` as described under
+[Quest givers](#quest-givers). When nothing is new it rewrites nothing. Otherwise it runs
 `bun tools/generate-data.ts`. `--pr` commits to a new branch and opens a pull request with `gh`; it is
 meant for CI or deliberate manual use. The weekly workflow instead uses
 `peter-evans/create-pull-request` on the branch `chore/community-data`.
@@ -158,6 +194,11 @@ meant for CI or deliberate manual use. The weekly workflow instead uses
 2. Add repository secrets `FQM_WORKER_URL` and `FQM_ADMIN_TOKEN` and allow GitHub Actions to create
    pull requests; the weekly merge then runs on Mondays (or manually).
 3. Point players to the Worker URL (the paste page) in the addon's README and export window.
+
+Upgrading a deployed Worker to export format version 2 needs migration `0002_quest_details.sql`
+(`bun run migrate:remote` in `worker/`) before the new code is deployed. The migration adds the new
+observation columns and counts position votes for existing observations; summaries stored earlier
+gain the new fields on each quest's next report.
 
 ## Limits and follow-ups
 

@@ -67,6 +67,15 @@ local function Reset(argument)
 	end
 end
 
+local function Track(argument)
+	local questID = tonumber(argument)
+	if not questID then
+		ns:Print(L.SLASH_TRACK_USAGE)
+		return
+	end
+	ns.Journal.Track(questID)
+end
+
 local COMMANDS = {
 	[""] = function()
 		ns.OpenOptions()
@@ -80,6 +89,10 @@ local COMMANDS = {
 	export = function(argument)
 		ns.ShowExport(argument)
 	end,
+	journal = function()
+		ns.Journal.Toggle()
+	end,
+	track = Track,
 	status = Diagnostics.PrintStatus,
 	probe = Diagnostics.PrintProbe,
 	errors = Diagnostics.PrintErrors,
@@ -104,5 +117,37 @@ function Slash.Register()
 	SLASH_FOREVERQUESTMARKER2 = "/foreverquest"
 	SlashCmdList.FOREVERQUESTMARKER = function(input)
 		ns.SafeCall("slash command", Slash.Run, input)
+	end
+end
+
+-- Minimap addon compartment. The client calls these globals by the names in the
+-- TOC (AddonCompartmentFunc and friends) and taints the call itself, so they are
+-- the addon's only globals besides the saved variables and the slash command.
+
+function ForeverQuestMarker_OnAddonCompartmentClick(_, buttonName)
+	ns.SafeCall("compartment click", function()
+		if buttonName == "RightButton" then
+			ns.OpenOptions()
+		else
+			ns.Journal.Toggle()
+		end
+	end)
+end
+
+function ForeverQuestMarker_OnAddonCompartmentEnter(_, button)
+	ns.SafeCall("compartment tooltip", function()
+		local done, total = ns.Progress.CountConfirmed()
+		GameTooltip:SetOwner(button, "ANCHOR_LEFT")
+		GameTooltip:AddLine(L.ADDON_TITLE, 1, 1, 1)
+		GameTooltip:AddLine(L.COMPARTMENT_PROGRESS:format(ns.Journal.FormatNumber(done), ns.Journal.FormatNumber(total)),
+			0.902, 0.753, 0.404)
+		GameTooltip:AddLine(L.COMPARTMENT_HINT, 0.8, 0.8, 0.8, true)
+		GameTooltip:Show()
+	end)
+end
+
+function ForeverQuestMarker_OnAddonCompartmentLeave(_, button)
+	if GameTooltip:IsOwned(button) then
+		GameTooltip:Hide()
 	end
 end

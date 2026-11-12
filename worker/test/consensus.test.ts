@@ -7,6 +7,7 @@ import {
 } from "../src/consensus";
 import {
   conflictingLocales,
+  emptySummary,
   giverVoteValue,
   summarize,
   type Vote,
@@ -142,6 +143,7 @@ describe("summarize", () => {
       id: 4001,
       name: "Scout Aldren",
       reports: 3,
+      total: 5,
     });
   });
 
@@ -157,11 +159,16 @@ describe("summarize", () => {
   });
 
   test("handles an empty vote list", () => {
-    expect(summarize([])).toEqual({
+    expect(summarize([])).toEqual(emptySummary());
+    expect(emptySummary()).toEqual({
       locales: {},
       level: null,
       giver: null,
+      finisher: null,
+      objectives: {},
+      items: null,
       map: null,
+      position: null,
     });
   });
 });

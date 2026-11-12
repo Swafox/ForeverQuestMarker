@@ -9,7 +9,10 @@ local DB = ns.DB
 local SECTIONS = {
 	{
 		title = L.OPTIONS_SECTION_DISPLAY,
-		keys = { "enabled", "markQuestFrame", "markGossip", "markQuestLog", "markTracker", "tooltips" },
+		keys = {
+			"enabled", "markQuestFrame", "markGossip", "markQuestLog", "markTracker", "tooltips",
+			"unitTooltips", "unitTooltipsHideDone",
+		},
 	},
 	{
 		title = L.OPTIONS_SECTION_STATES,
@@ -54,6 +57,9 @@ function ns.CreateOptions()
 	end
 
 	layout:AddInitializer(CreateSettingsListSectionHeaderInitializer(L.OPTIONS_SECTION_TOOLS))
+	AddButton(layout, L.OPTION_BUTTON_JOURNAL_LABEL, L.OPTION_BUTTON_JOURNAL, L.OPTION_BUTTON_JOURNAL_TIP, function()
+		ns.Journal.Show()
+	end)
 	AddButton(layout, L.OPTION_BUTTON_EXPORT_LABEL, L.OPTION_BUTTON_EXPORT, L.OPTION_BUTTON_EXPORT_TIP, function()
 		ns.ShowExport("json")
 	end)

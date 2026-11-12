@@ -20,6 +20,7 @@ import {
 import {
   conflictingLocales,
   giverVoteValue,
+  positionVoteValue,
   summarize,
   type Vote,
 } from "./summary";
@@ -77,6 +78,11 @@ const COMPARED_FIELDS = [
   "giverType",
   "giverId",
   "giverName",
+  "finisherType",
+  "finisherId",
+  "finisherName",
+  "objectivesHash",
+  "items",
   "map",
   "x",
   "y",
@@ -108,6 +114,11 @@ export function toObservation(
     giverType: record.giver?.type ?? null,
     giverId: record.giver?.id ?? null,
     giverName: record.giver?.name ?? null,
+    finisherType: record.finisher?.type ?? null,
+    finisherId: record.finisher?.id ?? null,
+    finisherName: record.finisher?.name ?? null,
+    objectivesHash: record.objectivesHash,
+    items: record.items === null ? null : record.items.join(","),
     map: record.map,
     x: record.x,
     y: record.y,
@@ -143,14 +154,19 @@ export function observationVotes(row: ObservationRow): Vote[] {
       count: 1,
     });
   }
-  const giver =
-    row.giverType === null
+  const actor = (
+    type: string | null,
+    id: number | null,
+    name: string | null,
+  ) =>
+    type === null
       ? null
       : giverVoteValue({
-          type: row.giverType as NonNullable<QuestRecord["giver"]>["type"],
-          id: row.giverId,
-          name: row.giverName,
+          type: type as NonNullable<QuestRecord["giver"]>["type"],
+          id,
+          name,
         });
+  const giver = actor(row.giverType, row.giverId, row.giverName);
   if (giver !== null)
     votes.push({
       dimension: "giver",
@@ -158,11 +174,36 @@ export function observationVotes(row: ObservationRow): Vote[] {
       value: giver,
       count: 1,
     });
+  const finisher = actor(row.finisherType, row.finisherId, row.finisherName);
+  if (finisher !== null)
+    votes.push({
+      dimension: "finisher",
+      locale: row.locale,
+      value: finisher,
+      count: 1,
+    });
+  if (row.objectivesHash !== null)
+    votes.push({
+      dimension: "objectives",
+      locale: row.locale,
+      value: row.objectivesHash,
+      count: 1,
+    });
+  if (row.items !== null)
+    votes.push({ dimension: "items", locale: "", value: row.items, count: 1 });
   if (row.map !== null)
     votes.push({
       dimension: "map",
       locale: "",
       value: String(row.map),
+      count: 1,
+    });
+  const position = positionVoteValue(row.map, row.x, row.y);
+  if (position !== null)
+    votes.push({
+      dimension: "position",
+      locale: "",
+      value: position,
       count: 1,
     });
   return votes;

@@ -8,7 +8,7 @@ local Export = {}
 ns.Export = Export
 
 Export.FORMAT = "ForeverQuestMarker"
-Export.VERSION = 1
+Export.VERSION = 2
 -- The submission pipeline's per-export limit (worker/src/validate.ts).
 Export.MAX_QUESTS = 5000
 -- The community paste page (worker/, docs/PIPELINE.md), shown in the export window.
@@ -53,6 +53,9 @@ function Export.CollectQuests()
 				state = record.state,
 				level = record.level,
 				giver = record.giver,
+				finisher = record.finisher,
+				objectivesHash = record.objectivesHash,
+				items = record.items,
 				map = record.map,
 				x = record.x,
 				y = record.y,
@@ -147,6 +150,7 @@ end
 -- Nested objects and their key order.
 local NESTED_KEYS = {
 	giver = { "type", "id", "name" },
+	finisher = { "type", "id", "name" },
 }
 
 -- Objects are written with a fixed key order so exports are stable and readable.
@@ -168,7 +172,7 @@ local DOCUMENT_KEYS = {
 }
 local QUEST_KEYS = {
 	"id", "title", "state", "level", "giver", "map", "x", "y", "faction", "contexts",
-	"firstSeen", "lastSeen", "seenCount", "accepted", "turnedIn",
+	"firstSeen", "lastSeen", "seenCount", "accepted", "turnedIn", "finisher", "objectivesHash", "items",
 }
 
 --- One quest per line keeps a large export readable and diff-friendly.
@@ -187,6 +191,7 @@ end
 local CSV_COLUMNS = {
 	"id", "title", "state", "level", "giverType", "giverId", "giverName", "map", "x", "y", "faction",
 	"contexts", "firstSeen", "lastSeen", "seenCount", "accepted", "turnedIn",
+	"finisherType", "finisherId", "finisherName", "objectivesHash", "items",
 }
 
 local function CsvField(value)
@@ -204,10 +209,13 @@ function Export.ToCSV(document)
 	local lines = { table.concat(CSV_COLUMNS, ",") }
 	for _, quest in ipairs(document.quests) do
 		local giver = quest.giver or {}
+		local finisher = quest.finisher or {}
 		local row = {
 			quest.id, quest.title, quest.state, quest.level, giver.type, giver.id, giver.name,
 			quest.map, quest.x, quest.y, quest.faction, table.concat(quest.contexts, ";"),
 			quest.firstSeen, quest.lastSeen, quest.seenCount, quest.accepted, quest.turnedIn,
+			finisher.type, finisher.id, finisher.name, quest.objectivesHash,
+			quest.items and table.concat(quest.items, ";") or nil,
 		}
 		local fields = {}
 		for i = 1, #CSV_COLUMNS do

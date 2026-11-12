@@ -19,26 +19,29 @@ against it, and `tools/ui-contract.ts` lists each assumption so `bun tools/verif
 
 The TOC loads, in order:
 
-| File                                                                           | Role                                                                                                |
-| ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| `Locales/Locales.lua`, `Locales/enUS.lua`                                      | `ns.L`; missing keys fall back to the key.                                                          |
-| `Core/Init.lua`                                                                | Namespace, `ns.State`, event dispatch, internal messages, `ns.SafeCall` error containment.          |
-| `Core/Bitset.lua`                                                              | Read-only quest ID sets decoded lazily from base64 segments (O(1) lookup, nothing decoded at load). |
-| `Data/*.lua`                                                                   | Generated ID sets and their provenance (`ns.Data.Sets`, `ns.Data.meta`).                            |
-| `Core/Classifier.lua`                                                          | Quest ID to state, with the precedence rules and a cache.                                           |
-| `Core/Database.lua`                                                            | Saved variables, defaults, repair of bad values, the random `clientId`.                             |
-| `Core/Display.lua`                                                             | The one place that decides which marker (if any) a quest gets, honoring settings.                   |
-| `Core/Integrations.lua`                                                        | Registry of UI integrations: install once, report status, refresh on setting changes.               |
-| `Core/Recorder.lua`                                                            | Event-driven quest observation for the community list.                                              |
-| `Core/Export.lua`                                                              | JSON and CSV serialization (docs/EXPORT_FORMAT.md).                                                 |
-| `UI/Badge.lua`                                                                 | Atlas coordinates, inline markup, marker textures on frames, per-context layout.                    |
-| `UI/Tooltip.lua`                                                               | Tooltip lines; quest link tooltips.                                                                 |
-| `UI/QuestFrame.lua`, `UI/GossipFrame.lua`, `UI/QuestLog.lua`, `UI/Tracker.lua` | The integrations.                                                                                   |
-| `UI/ExportFrame.lua`                                                           | The export window.                                                                                  |
-| `Core/Notices.lua`                                                             | Chat notices when the quest window is replaced by another addon.                                    |
-| `Core/Diagnostics.lua`, `Core/Slash.lua`                                       | `/fqm` commands.                                                                                    |
-| `Options/Options.lua`                                                          | Settings panel (modern `Settings` API).                                                             |
-| `Core/Bootstrap.lua`                                                           | `ADDON_LOADED` (saved variables) and `PLAYER_LOGIN` (everything else).                              |
+| File                                                                                                 | Role                                                                                                                                                           |
+| ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Locales/Locales.lua`, `Locales/enUS.lua`                                                            | `ns.L`; missing keys fall back to the key.                                                                                                                     |
+| `Core/Init.lua`                                                                                      | Namespace, `ns.State`, event dispatch, internal messages, `ns.SafeCall` error containment.                                                                     |
+| `Core/Bitset.lua`                                                                                    | Read-only quest ID sets decoded lazily from base64 segments (O(1) lookup, nothing decoded at load).                                                            |
+| `Data/*.lua`                                                                                         | Generated ID sets and their provenance (`ns.Data.Sets`, `ns.Data.meta`); community quest givers (`ns.Data.places`) and change details (`ns.Data.changeKinds`). |
+| `Core/Classifier.lua`                                                                                | Quest ID to state, with the precedence rules and a cache.                                                                                                      |
+| `Core/Database.lua`                                                                                  | Saved variables, defaults, repair of bad values, the random `clientId`.                                                                                        |
+| `Core/Places.lua`                                                                                    | Quest givers and pickup spots from community data and the player's recordings; zone lookup; waypoints.                                                         |
+| `Core/Display.lua`                                                                                   | The one place that decides which marker (if any) a quest gets, honoring settings.                                                                              |
+| `Core/Integrations.lua`                                                                              | Registry of UI integrations: install once, report status, refresh on setting changes.                                                                          |
+| `Core/Recorder.lua`                                                                                  | Event-driven quest observation for the community list.                                                                                                         |
+| `Core/Export.lua`                                                                                    | JSON and CSV serialization (docs/EXPORT_FORMAT.md).                                                                                                            |
+| `Core/Progress.lua`                                                                                  | Completion of the new quests, grouped by zone, computed on demand for the journal.                                                                             |
+| `UI/Badge.lua`                                                                                       | Atlas coordinates, inline markup, marker textures on frames, per-context layout.                                                                               |
+| `UI/Tooltip.lua`                                                                                     | Tooltip lines; quest link tooltips.                                                                                                                            |
+| `UI/QuestFrame.lua`, `UI/GossipFrame.lua`, `UI/QuestLog.lua`, `UI/Tracker.lua`, `UI/UnitTooltip.lua` | The integrations.                                                                                                                                              |
+| `UI/ExportFrame.lua`                                                                                 | The export window.                                                                                                                                             |
+| `UI/Journal.lua`                                                                                     | The journal window and its waypoint clicks.                                                                                                                    |
+| `Core/Notices.lua`                                                                                   | Chat notices when the quest window is replaced by another addon.                                                                                               |
+| `Core/Diagnostics.lua`, `Core/Slash.lua`                                                             | `/fqm` commands; the minimap addon compartment callbacks.                                                                                                      |
+| `Options/Options.lua`                                                                                | Settings panel (modern `Settings` API).                                                                                                                        |
+| `Core/Bootstrap.lua`                                                                                 | `ADDON_LOADED` (saved variables) and `PLAYER_LOGIN` (everything else).                                                                                         |
 
 ## Hooks
 
@@ -55,6 +58,22 @@ game's error handler (BugSack sees it), announced once in chat, and never interr
 | Objective tracker                   | `hooksecurefunc(QuestObjectiveTracker, "Update")` (and the campaign module if present), then `EnumerateActiveBlocks`                                  | Pip on `block.poiButton`, left of the header, or in that spot when the tracker shows no POI buttons. Headers wrap freely, so the marker never touches the text. Tooltip via `OnQuestBlockHeader.OnEnter`, building one outside groups exactly as Blizzard's PTR feedback addon does.                                                                                                              |
 | Item and area trigger offers        | `hooksecurefunc(QuestObjectiveTracker, "AddAutoQuestPopUp")` with type `OFFER`                                                                        | No marker (Blizzard shows a pop-up and closes the offer before `QUEST_DETAIL` reaches addons); the recorder uses this hook to record the quest and its item.                                                                                                                                                                                                                                      |
 | Quest links, map pins               | `TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Quest)`, `MapCanvas.QuestPin.OnEnter`                                                   | Tooltip lines only.                                                                                                                                                                                                                                                                                                                                                                               |
+
+Two more entry points do not hook Blizzard code:
+
+- **NPC tooltips** use `TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit)`. The
+  creature ID comes from the tooltip data's `guid` (skipped when it is a secret value); the quests come
+  from `Places.GetQuestsByGiver`, an index built once from `ns.Data.places` and the recorded givers
+  and rebuilt only after the recorder learns a new giver.
+- **The minimap addon compartment** calls the globals named by the TOC fields `AddonCompartmentFunc`,
+  `AddonCompartmentFuncOnEnter` and `AddonCompartmentFuncOnLeave` (`Blizzard_Minimap`'s
+  `AddonCompartmentMixin:RegisterAddons`, which taints the call itself). These three functions are
+  the addon's only globals besides the saved variables and the slash command.
+
+The journal is the addon's own window: a pool of its own row buttons in a `UIPanelScrollFrameTemplate`,
+rebuilt when it opens and, while it is open, once per burst of `QUEST_TURNED_IN`, `QUEST_ACCEPTED`,
+`QUEST_REMOVED` and `QUEST_DATA_LOAD_RESULT`. Waypoints use `C_Map.SetUserWaypoint` and
+`C_SuperTrack.SetSuperTrackedUserWaypoint`, the same single user waypoint a player places by hand.
 
 Per-frame state (which quest a row shows, whether its scripts are hooked, the text last set) lives
 in the modules' own weak-keyed tables, never as fields on Blizzard frames. Each marker texture sits on

@@ -5,7 +5,11 @@
  */
 
 export const EXPORT_FORMAT = "ForeverQuestMarker";
-export const SUPPORTED_VERSIONS: readonly number[] = [1];
+export const SUPPORTED_VERSIONS: readonly number[] = [1, 2];
+/** Version 2 adds finisher, objectivesHash and items to quest records. */
+export const DETAIL_FIELDS_VERSION = 2;
+export const MAX_ITEMS = 20;
+export const MAX_ITEM_ID = 10_000_000;
 export const MAX_QUESTS = 5000;
 export const MAX_TEXT_LENGTH = 200;
 export const MAX_ERRORS = 100;
@@ -69,6 +73,12 @@ export interface QuestRecord {
   state: QuestState;
   level: number | null;
   giver: GiverRecord | null;
+  /** NPC or object that showed the progress or reward page (version 2). */
+  finisher: GiverRecord | null;
+  /** Hash of the normalized objective text on the offer page (version 2). */
+  objectivesHash: string | null;
+  /** Item IDs the progress page asks for, ascending (version 2). */
+  items: number[] | null;
   map: number | null;
   x: number | null;
   y: number | null;
@@ -104,6 +114,7 @@ export type ValidationResult =
   | { ok: false; errors: ValidationError[]; truncated: boolean };
 
 const CLIENT_ID = /^[0-9a-f]{16}$/;
+const OBJECTIVES_HASH = /^[0-9a-f]{8}$/;
 const BUILD = /^\d+\.\d+\.\d+\.\d+$/;
 const ADDON_VERSION = /^[0-9A-Za-z][0-9A-Za-z.+_-]{0,31}$/;
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/;
@@ -339,11 +350,49 @@ function contexts(c: Collector, value: unknown, path: string): QuestContext[] {
   return [...seen] as QuestContext[];
 }
 
+function objectivesHash(
+  c: Collector,
+  value: unknown,
+  path: string,
+): string | null {
+  if (isAbsent(value)) return null;
+  if (typeof value !== "string" || !OBJECTIVES_HASH.test(value)) {
+    c.add(path, "must be 8 lowercase hex characters");
+    return null;
+  }
+  return value;
+}
+
+function items(c: Collector, value: unknown, path: string): number[] | null {
+  if (isAbsent(value)) return null;
+  if (!Array.isArray(value) || value.length === 0 || value.length > MAX_ITEMS) {
+    c.add(path, `must be an array of 1 to ${MAX_ITEMS} item IDs`);
+    return null;
+  }
+  let ok = true;
+  value.forEach((entry, index) => {
+    if (
+      typeof entry !== "number" ||
+      !Number.isInteger(entry) ||
+      entry < 1 ||
+      entry > MAX_ITEM_ID
+    ) {
+      c.add(`${path}[${index}]`, `must be an item ID from 1 to ${MAX_ITEM_ID}`);
+      ok = false;
+    } else if (index > 0 && entry <= (value[index - 1] as number)) {
+      c.add(`${path}[${index}]`, "item IDs must be distinct and ascending");
+      ok = false;
+    }
+  });
+  return ok ? (value as number[]) : null;
+}
+
 function questRecord(
   c: Collector,
   value: unknown,
   path: string,
   now: number,
+  version: number,
 ): QuestRecord | null {
   if (!isObject(value)) {
     c.add(path, `must be an object, got ${describe(value)}`);
@@ -355,6 +404,15 @@ function questRecord(
   const state = oneOf(c, value, "state", prefix, QUEST_STATES, true);
   const level = integer(c, value, "level", prefix, 1, 100, false);
   const questGiver = giver(c, value["giver"], `${prefix}giver`);
+  // Version 1 documents never had these fields; like any unknown field they are ignored.
+  const details = version >= DETAIL_FIELDS_VERSION;
+  const finisher = details
+    ? giver(c, value["finisher"], `${prefix}finisher`)
+    : null;
+  const hash = details
+    ? objectivesHash(c, value["objectivesHash"], `${prefix}objectivesHash`)
+    : null;
+  const handIns = details ? items(c, value["items"], `${prefix}items`) : null;
   const map = integer(c, value, "map", prefix, 1, 1_000_000, false);
   const x = coordinate(c, value, "x", prefix);
   const y = coordinate(c, value, "y", prefix);
@@ -388,6 +446,9 @@ function questRecord(
     state,
     level,
     giver: questGiver,
+    finisher,
+    objectivesHash: hash,
+    items: handIns,
     map,
     x,
     y,
@@ -475,7 +536,13 @@ export function validateExport(value: unknown, now: number): ValidationResult {
         c.truncated = true;
         break;
       }
-      const record = questRecord(c, quests[index], `quests[${index}]`, now);
+      const record = questRecord(
+        c,
+        quests[index],
+        `quests[${index}]`,
+        now,
+        version as number,
+      );
       if (!record) continue;
       const earlier = firstIndex.get(record.id);
       if (earlier !== undefined) {

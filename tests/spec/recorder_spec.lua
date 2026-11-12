@@ -62,6 +62,30 @@ describe("Recorder", function()
 		end)
 	end)
 
+	describe("HashObjectives", function()
+		it("matches the pipeline's normalization and hash", function()
+			assert.are.equal("42300a10", Recorder.HashObjectives("Kill 10 Kobold Vermin."))
+			assert.are.equal("42300a10", Recorder.HashObjectives("  kill 10\nKOBOLD-vermin!  "))
+			assert.are.equal("cf93bc8e", Recorder.HashObjectives("Slay 10 Kobold Vermin."))
+			-- Above 2^31, where a single %x would overflow a 32-bit C long.
+			assert.is_true(tonumber("cf93bc8e", 16) >= 2 ^ 31)
+			assert.are.equal("00000061", Recorder.HashObjectives("a"))
+		end)
+
+		it("removes the player's name, class and race", function()
+			local words = { "Tester", "Warrior", "Human" }
+			assert.are.equal("42300a10", Recorder.HashObjectives("Kill 10 Kobold Vermin, Tester, Human Warrior!", words))
+		end)
+
+		it("returns nil for empty, non-string and secret text", function()
+			assert.is_nil(Recorder.HashObjectives(""))
+			assert.is_nil(Recorder.HashObjectives("!!!"))
+			assert.is_nil(Recorder.HashObjectives(nil))
+			env.secret["Secret"] = true
+			assert.is_nil(Recorder.HashObjectives("Secret"))
+		end)
+	end)
+
 	describe("Observe", function()
 		it("records new quests with location, faction and context", function()
 			local record = Recorder.Observe(92401, "detail", { title = "Into the Ruins", level = 17 })
@@ -192,6 +216,32 @@ describe("Recorder", function()
 			assert.are.same({ type = "item", id = 266001 }, record.giver)
 		end)
 
+		it("hashes the objective text of offered quests without the player's own name", function()
+			env.currentQuestID, env.currentQuestTitle = 176, "Wanted: Hogger"
+			env.objectiveText = "Kill 10 Kobold Vermin, Tester."
+			env:FireEvent("QUEST_DETAIL", 0)
+			-- Same vector as tools/lib/objectivesHash.test.ts.
+			assert.are.equal("42300a10", ns.db.observations[176].objectivesHash)
+		end)
+
+		it("records the turn-in NPC and required items from the progress page", function()
+			env.units.questnpc = { guid = CREATURE_GUID, name = "Scout" }
+			env.currentQuestID, env.currentQuestTitle = 92753, "Destruction in Deadmines"
+			env.requiredItems = { { id = 3344, name = "B" }, { id = 1931, name = "A" }, { id = 3344, name = "B" } }
+			env:FireEvent("QUEST_PROGRESS")
+			local record = ns.db.observations[92753]
+			assert.are.same({ type = "npc", id = 1234, name = "Scout" }, record.finisher)
+			assert.are.same({ 1931, 3344 }, record.items)
+			assert.is_nil(record.giver)
+		end)
+
+		it("records the turn-in NPC from the reward page", function()
+			env.units.questnpc = { guid = CREATURE_GUID, name = "Scout" }
+			env.currentQuestID, env.currentQuestTitle = 92753, "Destruction in Deadmines"
+			env:FireEvent("QUEST_COMPLETE")
+			assert.are.equal(1234, ns.db.observations[92753].finisher.id)
+		end)
+
 		it("fills in a title once the client loads the quest data", function()
 			env:OfferQuestFromItem(92753, 266001)
 			assert.is_nil(ns.db.observations[92753].title)
@@ -262,7 +312,7 @@ describe("Export", function()
 		local document, _, err = json.decode(text)
 		assert.is_nil(err)
 		assert.are.equal("ForeverQuestMarker", document.format)
-		assert.are.equal(1, document.version)
+		assert.are.equal(2, document.version)
 		assert.are.equal("dev", document.addonVersion)
 		assert.are.equal("1.60.1.69977", document.build)
 		assert.are.equal(16001, document.interface)
@@ -307,10 +357,28 @@ describe("Export", function()
 		end
 		assert.are.equal(4, #lines)
 		local header = "id,title,state,level,giverType,giverId,giverName,map,x,y,faction,contexts,"
-			.. "firstSeen,lastSeen,seenCount,accepted,turnedIn"
+			.. "firstSeen,lastSeen,seenCount,accepted,turnedIn,finisherType,finisherId,finisherName,objectivesHash,items"
 		assert.are.equal(header, lines[1])
 		assert.is_truthy(lines[2]:find("^92401,Into the Ruins,confirmed,17,npc,1234,Scout,1429,0.452,0.612,Alliance,detail,"))
 		assert.is_truthy(lines[4]:find('^176,"Wanted: ""Hogger"", again",classic,'))
+	end)
+
+	it("exports the turn-in NPC, objectives hash and required items (version 2)", function()
+		ns.Recorder.Observe(176, "progress", {
+			finisher = { type = "npc", id = 234, name = "Marshal Dughan" },
+			objectivesHash = "42300a10",
+			items = { 1931, 3344 },
+		})
+		local document = json.decode(ns.Export.ToJSON(ns.Export.BuildDocument()))
+		local quest = document.quests[3]
+		assert.are.equal(176, quest.id)
+		assert.are.same({ type = "npc", id = 234, name = "Marshal Dughan" }, quest.finisher)
+		assert.are.equal("42300a10", quest.objectivesHash)
+		assert.are.same({ 1931, 3344 }, quest.items)
+		assert.is_nil(document.quests[1].finisher)
+
+		local csv = ns.Export.ToCSV(ns.Export.BuildDocument())
+		assert.is_truthy(csv:find(",npc,234,Marshal Dughan,42300a10,1931;3344\n?", 1))
 	end)
 
 	it("escapes control characters in JSON strings", function()

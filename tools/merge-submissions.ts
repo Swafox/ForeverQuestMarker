@@ -30,6 +30,11 @@ import {
   renderSummary,
   type MergeSummary,
 } from "./lib/mergeSummary";
+import {
+  mergePlaces,
+  parsePlacesFile,
+  serializePlacesFile,
+} from "./lib/places";
 import { branchName, openPullRequest } from "./lib/pullRequest";
 import {
   fetchWorkerJson,
@@ -41,13 +46,15 @@ import {
 const USAGE = `Usage: bun tools/merge-submissions.ts [options]
 
 Pulls quests confirmed by community reports from the Worker, adds new ones to
-dataset/community/confirmed.json and regenerates the addon data.
+dataset/community/confirmed.json, records the quest givers players agree on in
+dataset/community/places.json and regenerates the addon data.
 
 Options:
   --worker <url>         Worker base URL (default: $FQM_WORKER_URL)
   --admin-token <token>  Admin token (default: $FQM_ADMIN_TOKEN); enables the Classic
                          change report in .cache/change-candidates.md
-  --min-reports <n>      Agreeing reports needed for a change candidate (default: 2)
+  --min-reports <n>      Agreeing reports needed for a change candidate or a quest
+                         giver (default: 2)
   --dry-run              Show what would change and write nothing
   --offline              Use only cached QuestieDB and wago.tools downloads
   --summary-file <path>  Also write the summary as a pull request body (for CI)
@@ -57,10 +64,12 @@ Options:
 
 const CONFIRMED_FILE = "dataset/community/confirmed.json";
 const CHANGED_FILE = "dataset/community/changed.json";
+const PLACES_FILE = "dataset/community/places.json";
 const REPORT_FILE = ".cache/change-candidates.md";
 /** Files the pipeline may modify, for --pr. */
 const GENERATED_PATHS = [
   CONFIRMED_FILE,
+  PLACES_FILE,
   "Data",
   "tests/fixtures/quest_sets.lua",
   "worker/src/generated/questData.ts",
@@ -163,7 +172,26 @@ async function main(): Promise<void> {
     },
   );
   const mergedText = serializeCommunityFile(merge.file);
-  const changed = merge.added.length > 0 && mergedText !== originalText;
+  const confirmedChanged =
+    merge.added.length > 0 && mergedText !== originalText;
+
+  const community = new Set(merge.file.quests.map((entry) => entry.id));
+  const datamined = new Set(DATAMINED_FOREVER_QUEST_IDS);
+  const notNew = new Set([
+    ...CLASSIC_QUEST_IDS,
+    ...SOD_QUEST_IDS,
+    ...ERA_CLIENT_QUEST_IDS,
+  ]);
+  const placesText = await Bun.file(join(REPO_ROOT, PLACES_FILE)).text();
+  const places = mergePlaces(
+    parsePlacesFile(placesText, PLACES_FILE),
+    confirmed.places,
+    (id) => !notNew.has(id) && (datamined.has(id) || community.has(id)),
+    { minReports },
+  );
+  const mergedPlaces = serializePlacesFile(places.file);
+  const placesChanged = mergedPlaces !== placesText;
+  const changed = confirmedChanged || placesChanged;
 
   let changes: ChangeComparison | null = null;
   let report: string | null = null;
@@ -207,6 +235,11 @@ async function main(): Promise<void> {
     added: merge.added,
     alreadyListed: merge.alreadyListed.length,
     skipped: merge.skipped,
+    places: {
+      added: places.added,
+      updated: places.updated,
+      undecided: places.undecided,
+    },
     changes,
     reportPath: report === null || dryRun ? null : REPORT_FILE,
     warnings,
@@ -214,9 +247,17 @@ async function main(): Promise<void> {
   console.log(renderSummary(summary));
 
   if (dryRun) {
-    console.log(
-      `Dry run: nothing written.${changed ? ` ${CONFIRMED_FILE} would gain ${merge.added.length} entries.` : ""}`,
-    );
+    const would = [
+      ...(confirmedChanged
+        ? [`${CONFIRMED_FILE} would gain ${merge.added.length} entries.`]
+        : []),
+      ...(placesChanged
+        ? [
+            `${PLACES_FILE} would gain ${places.added.length} and update ${places.updated.length} entries.`,
+          ]
+        : []),
+    ];
+    console.log(["Dry run: nothing written.", ...would].join(" "));
     return;
   }
 
@@ -224,12 +265,21 @@ async function main(): Promise<void> {
   if (flags["summary-file"])
     await Bun.write(flags["summary-file"], pullRequestBody(summary));
   if (!changed) {
-    console.log("No new quests; the dataset and generated data are unchanged.");
+    console.log(
+      "No new quests or quest givers; the dataset and generated data are unchanged.",
+    );
     return;
   }
 
-  await writeFile(CONFIRMED_FILE, mergedText);
-  console.log(`Wrote ${CONFIRMED_FILE}; regenerating addon data.`);
+  if (confirmedChanged) {
+    await writeFile(CONFIRMED_FILE, mergedText);
+    console.log(`Wrote ${CONFIRMED_FILE}.`);
+  }
+  if (placesChanged) {
+    await writeFile(PLACES_FILE, mergedPlaces);
+    console.log(`Wrote ${PLACES_FILE}.`);
+  }
+  console.log("Regenerating addon data.");
   regenerateData(flags.offline);
 
   if (flags.pr) {

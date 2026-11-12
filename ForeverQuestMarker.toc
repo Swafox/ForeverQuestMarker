@@ -6,6 +6,9 @@
 ## Category: Quests
 ## IconTexture: Interface\AddOns\ForeverQuestMarker\Media\Icon.tga
 ## SavedVariables: ForeverQuestMarkerDB
+## AddonCompartmentFunc: ForeverQuestMarker_OnAddonCompartmentClick
+## AddonCompartmentFuncOnEnter: ForeverQuestMarker_OnAddonCompartmentEnter
+## AddonCompartmentFuncOnLeave: ForeverQuestMarker_OnAddonCompartmentLeave
 ## X-License: GPL-3.0-or-later
 ## X-Curse-Project-ID: 1710118
 ## X-Wago-ID: qKQgxnNx
@@ -20,13 +23,17 @@ Data\Meta.lua
 Data\ClassicQuests.lua
 Data\ForeverQuests.lua
 Data\Exclusions.lua
+Data\Places.lua
+Data\Changes.lua
 
 Core\Classifier.lua
 Core\Database.lua
+Core\Places.lua
 Core\Display.lua
 Core\Integrations.lua
 Core\Recorder.lua
 Core\Export.lua
+Core\Progress.lua
 
 UI\Badge.lua
 UI\Tooltip.lua
@@ -34,7 +41,9 @@ UI\QuestFrame.lua
 UI\GossipFrame.lua
 UI\QuestLog.lua
 UI\Tracker.lua
+UI\UnitTooltip.lua
 UI\ExportFrame.lua
+UI\Journal.lua
 
 Core\Notices.lua
 Core\Diagnostics.lua

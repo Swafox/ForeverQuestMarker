@@ -12,7 +12,7 @@ import {
   type PromotionConfig,
 } from "./promotion";
 import type { Stats } from "./repository";
-import type { GiverSummary, QuestSummary } from "./summary";
+import type { GiverSummary, PositionSummary, QuestSummary } from "./summary";
 
 export function isoTime(seconds: number): string {
   return new Date(seconds * 1000).toISOString();
@@ -26,8 +26,11 @@ export interface PublicQuest {
   firstReported: string;
   lastReported: string;
   level: number | null;
-  giver: Omit<GiverSummary, "reports"> | null;
+  /** Most reported quest giver, with how many reports name it out of all that name one. */
+  giver: GiverSummary | null;
   map: number | null;
+  /** Most reported position (cell center) with its agreement. */
+  position: PositionSummary | null;
 }
 
 function publicQuest(row: QuestRow): PublicQuest {
@@ -44,14 +47,9 @@ function publicQuest(row: QuestRow): PublicQuest {
     firstReported: isoTime(row.firstReported),
     lastReported: isoTime(row.lastReported),
     level: summary.level?.value ?? null,
-    giver: summary.giver
-      ? {
-          type: summary.giver.type,
-          id: summary.giver.id,
-          name: summary.giver.name,
-        }
-      : null,
+    giver: summary.giver ? { ...summary.giver } : null,
     map: summary.map?.id ?? null,
+    position: summary.position ? { ...summary.position } : null,
   };
 }
 
@@ -160,6 +158,10 @@ export function classicObservationsPayload(
         reporters: row.reporters,
         level: row.summary.level,
         locales: row.summary.locales,
+        giver: row.summary.giver,
+        finisher: row.summary.finisher,
+        objectives: row.summary.objectives,
+        items: row.summary.items,
       })),
   };
 }
