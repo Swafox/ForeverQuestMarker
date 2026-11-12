@@ -1,13 +1,13 @@
 {
   "questieDB": {
     "repo": "Questie/QuestieDB",
-    "commit": "3ac79c37f140b8eb343a28318b7a516b82802a86",
+    "commit": "a444a6418113ae0fce5d30c897674132e756ba1d",
     "classicQuestDB": "data/Classic/classicQuestDB.lua",
     "eraQuestFixes": "src/corrections/Era/classicQuestFixes.lua",
     "sodBaseQuests": "src/corrections/Sod/sodBaseQuests.lua"
   },
   "wago": {
-    "foreverBuild": "1.60.1.70862",
+    "foreverBuild": "1.60.1.70888",
     "eraBuild": "1.15.9.70576"
   }
 }
