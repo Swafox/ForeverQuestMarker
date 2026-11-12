@@ -9,6 +9,8 @@ Before tagging a release, rename `Unreleased` to the version and date, for examp
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-11-12
+
 ### Changed
 
 - Quest data checked against Forever build 1.60.1.70888 and Classic Era 1.15.9.70576: no quests
